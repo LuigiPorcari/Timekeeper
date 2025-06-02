@@ -20,12 +20,4 @@
             </div>
         </div>
     @endif
-    @if (Auth::check())
-        <form action="{{ route('logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="btn">Logout</button>
-        </form>
-        <a class="btn mb-2" href="{{ route('password.change') }}">Cambia
-            Password</a>
-    @endif
 </x-layout>

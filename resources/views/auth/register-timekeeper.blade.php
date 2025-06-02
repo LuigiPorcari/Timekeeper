@@ -73,7 +73,7 @@
                                 <select class="form-select" id="transfer" name="transfer" required>
                                     <option value="no">No</option>
                                     <option value="1">1 notte</option>
-                                    <option value="2/3">tra 2 e 5 notti</option>
+                                    <option value="2/5">tra 2 e 5 notti</option>
                                     <option value=">5">più di 5 notti</option>
                                 </select>
                             </div>

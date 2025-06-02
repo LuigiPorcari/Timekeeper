@@ -10,6 +10,14 @@ use App\Notifications\CustomResetPasswordNotification;
 
 class User extends Authenticatable
 {
+    public function races()
+    {
+        return $this->belongsToMany(Race::class);
+    }
+    public function availabilities()
+    {
+        return $this->belongsToMany(Availability::class);
+    }
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -52,6 +60,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'specialization' => 'array',
         ];
     }
     public function sendPasswordResetNotification($token)

@@ -3,7 +3,7 @@
         <div class="row justify-content-center mt-4">
             <div class="col-12 col-md-8">
                 <div class="card">
-                    <div class="card-header fs-4">Registrati come Cronometrista</div>
+                    <div class="card-header fs-4">Registrati come Admin</div>
                     <div class="card-body">
                         <form method="POST" action="{{ route('admin.register') }}">
                             @csrf
@@ -73,7 +73,7 @@
                                 <select class="form-select" id="transfer" name="transfer" required>
                                     <option value="no">No</option>
                                     <option value="1">1 notte</option>
-                                    <option value="2/3">tra 2 e 5 notti</option>
+                                    <option value="2/5">tra 2 e 5 notti</option>
                                     <option value=">5">più di 5 notti</option>
                                 </select>
                             </div>

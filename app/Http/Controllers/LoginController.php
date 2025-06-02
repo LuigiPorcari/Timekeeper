@@ -17,13 +17,13 @@ class LoginController extends Controller
         $this->validateLogin($request);
         if (Auth::attempt($this->credentials($request), $request->filled('remember'))) {
             $request->session()->regenerate();
-            // if (Auth::user()->is_admin) {
-            //     return redirect()->route('');
-            // }
-            // if (Auth::user()->is_timekeeper) {
-            //     return redirect()->route('');
-            // }
-            return view('welcome');
+            $user = Auth::user();
+            if ($user->is_admin) {
+                return redirect()->route('admin.dashboard');
+            }
+            if ($user->is_timekeeper) {
+                return redirect()->route('timekeeper.dashboard');
+            }
         }
         throw ValidationException::withMessages([
             'email' => [trans('auth.failed')],
