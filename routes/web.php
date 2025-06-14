@@ -10,6 +10,7 @@ use App\Http\Controllers\TimekeeperController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 
+
 Route::get('/', [PublicController::class, 'homepage'])->name('homepage');
 //!ROTTE REGISTRAZIONE CORSISTA
 Route::get('/register/timekeeper', [RegisterController::class, 'showTimekeeperRegistrationForm'])->name('timekeeper.register.form');
@@ -24,6 +25,8 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::get('/password-dimenticata', [ForgotPasswordController::class, 'showForgotForm'])->name('password.request');
 Route::post('/password-dimenticata', [ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
 //!ROTTE ADMIN
+Route::get('/admin/race/{race}/timekeepers', [AdminController::class, 'selectTimekeepers'])->name('race.timekeepers.select');
+Route::post('/admin/race/{race}/timekeepers', [AdminController::class, 'assignTimekeepers'])->name('race.timekeepers.assign');
 Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 Route::get('/admin/timekeeperList', [AdminController::class, 'timekeeperListShow'])->name('admin.timekeeperList');
 Route::get('/admin/racesList', [AdminController::class, 'racesListShow'])->name('admin.racesList');

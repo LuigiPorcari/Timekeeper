@@ -1,11 +1,10 @@
 <x-layout documentTitle="Admin Timekeeper List">
-    <div class="pt-5">
-        <h1 class="mt-4">Lista Cronometristi</h1>
-    </div>
-    <div class="container mt-5 pt-1">
-        <div class="row mt-5 pt-5 justify-content-center">
-            <table class="table table-bordered">
-                <thead>
+    <div class="container mt-5 pt-5">
+        <h1 class="mb-4">Lista Cronometristi</h1>
+
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
                     <tr>
                         <th scope="col">Nome e Cognome</th>
                         <th scope="col">Disponibilità</th>
@@ -17,29 +16,30 @@
                     @forelse ($timekeepers as $timekeeper)
                         <tr>
                             <th scope="row">
-                                <a href="{{ route('admin.timekeeperDetails', $timekeeper) }}">{{ $timekeeper->name }}
-                                    {{ $timekeeper->surname }}</a>
+                                <a href="{{ route('admin.timekeeperDetails', $timekeeper) }}">
+                                    {{ $timekeeper->name }} {{ $timekeeper->surname }}
+                                </a>
                             </th>
                             <td>
-                                @forelse ($timekeeper->availabilities as $availavily)
-                                    {{ $availavily->date_of_availability }}
+                                @forelse ($timekeeper->availabilities as $a)
+                                    {{ $a->date_of_availability }}<br>
                                 @empty
-                                    Non ha segnato disponibilità
+                                    <em class="text-muted">Non ha segnato disponibilità</em>
                                 @endforelse
                             </td>
                             <td>
                                 @forelse ($timekeeper->races as $race)
-                                    {{ $race->date_of_race }}
+                                    {{ $race->date_of_race }}<br>
                                 @empty
-                                    Non è assegnato a nessuna gara
+                                    <em class="text-muted">Non è assegnato a nessuna gara</em>
                                 @endforelse
                             </td>
-                            <td>Report</td>
+                            <td><span class="text-muted">Report</span></td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4">
-                                <h2 class="custom-subtitle text-black">Non ci sono cronometristi registrati</h2>
+                            <td colspan="4" class="text-center text-muted">
+                                Non ci sono cronometristi registrati
                             </td>
                         </tr>
                     @endforelse
@@ -47,6 +47,4 @@
             </table>
         </div>
     </div>
-
-
 </x-layout>

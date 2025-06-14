@@ -1,16 +1,14 @@
 <x-layout documentTitle="Timekeeper Availabilities List">
-    <div class="mt-5">
-        <h1 class="mt-5 pt-5">Seleziona le tue disponibilità</h1>
-    </div>
+    <div class="container mt-5 pt-5">
+        <h1 class="mb-4">Seleziona le tue disponibilità</h1>
 
-    @if (session('success'))
-        <div class="alert alert-dismissible alert-success">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
+        @if (session('success'))
+            <div class="alert alert-dismissible alert-success">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
 
-    <div class="container my-5">
         <form action="{{ route('availability.storeUser') }}" method="POST">
             @csrf
 
@@ -23,20 +21,22 @@
             @endphp
 
             @foreach ($groupedAvailabilities as $month => $dates)
-                <div class="card my-3">
+                <div class="card my-3 shadow-sm">
                     <div class="card-header">
                         <strong>{{ ucfirst($month) }}</strong>
                     </div>
                     <div class="card-body">
-                        <div class="row">
+                        <div class="row g-3">
                             @foreach ($dates as $availability)
-                                <div class="col-2">
-                                    <input type="checkbox" name="dates[]" value="{{ $availability->id }}"
-                                        id="date-{{ $availability->id }}"
-                                        {{ in_array($availability->id, $selected ?? []) ? 'checked' : '' }}>
-                                    <label for="date-{{ $availability->id }}">
-                                        {{ \Carbon\Carbon::parse($availability->date_of_availability)->format('d/m/Y') }}
-                                    </label>
+                                <div class="col-6 col-md-4 col-lg-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="dates[]"
+                                            value="{{ $availability->id }}" id="date-{{ $availability->id }}"
+                                            {{ in_array($availability->id, $selected ?? []) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="date-{{ $availability->id }}">
+                                            {{ \Carbon\Carbon::parse($availability->date_of_availability)->format('d/m/Y') }}
+                                        </label>
+                                    </div>
                                 </div>
                             @endforeach
                         </div>
@@ -44,7 +44,9 @@
                 </div>
             @endforeach
 
-            <button type="submit" class="btn btn-primary mt-3">Salva Disponibilità</button>
+            <div class="mt-4 d-grid d-md-block">
+                <button type="submit" class="btn btn-primary">Salva Disponibilità</button>
+            </div>
         </form>
     </div>
 </x-layout>

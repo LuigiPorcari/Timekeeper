@@ -1,52 +1,66 @@
 <x-layout documentTitle="Admin Create Availability">
-    <div class="pt-5">
-        <h1 class="mt-4">Inserisci Disponibilità</h1>
-    </div>
+    <div class="container pt-5 mt-5">
+        <h1 class="mb-4">Inserisci Disponibilità</h1>
 
-    @if (session('success'))
-        <div class="alert alert-dismissible alert-success">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
+        @if (session('success'))
+            <div class="alert alert-dismissible alert-success">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
 
-    <div class="container my-5">
-        <h1>Seleziona le disponibilità</h1>
-        <form action="{{ route('availability.store') }}" method="POST">
-            @csrf
+        <div class="card shadow-sm mb-5">
+            <div class="card-body">
+                <h5 class="card-title">Seleziona le disponibilità</h5>
 
-            @foreach (range(1, 12) as $month)
-                @php
-                    $monthName = \Carbon\Carbon::create()->month($month)->locale('it')->monthName;
-                @endphp
+                <form action="{{ route('availability.store') }}" method="POST">
+                    @csrf
 
-                <div class="card my-3">
-                    <div class="card-header">
-                        <button class="btn btn-link text-decoration-none" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#collapse-{{ $month }}" aria-expanded="false"
-                            aria-controls="collapse-{{ $month }}">
-                            {{ ucfirst($monthName) }}
-                        </button>
-                    </div>
-                    <div class="collapse" id="collapse-{{ $month }}">
-                        <div class="card-body">
-                            <div class="row">
-                                @foreach (\Carbon\Carbon::now()->startOfYear()->startOfMonth()->month($month)->daysUntil(\Carbon\Carbon::now()->startOfYear()->startOfMonth()->month($month)->endOfMonth()) as $date)
-                                    <div class="col-2">
-                                        <input type="checkbox" name="dates[]" value="{{ $date->toDateString() }}"
-                                            id="date-{{ $date->toDateString() }}"
-                                            {{ in_array($date->toDateString(), $selectedDates ?? []) ? 'checked' : '' }}>
-                                        <label
-                                            for="date-{{ $date->toDateString() }}">{{ $date->format('d/m/Y') }}</label>
+                    @foreach (range(1, 12) as $month)
+                        @php
+                            $monthName = \Carbon\Carbon::create()->month($month)->locale('it')->monthName;
+                        @endphp
+
+                        <div class="accordion mb-3" id="accordion-{{ $month }}">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-{{ $month }}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#collapse-{{ $month }}" aria-expanded="false"
+                                        aria-controls="collapse-{{ $month }}">
+                                        {{ ucfirst($monthName) }}
+                                    </button>
+                                </h2>
+                                <div id="collapse-{{ $month }}" class="accordion-collapse collapse"
+                                    aria-labelledby="heading-{{ $month }}"
+                                    data-bs-parent="#accordion-{{ $month }}">
+                                    <div class="accordion-body">
+                                        <div class="row g-3">
+                                            @foreach (\Carbon\Carbon::now()->startOfYear()->startOfMonth()->month($month)->daysUntil(\Carbon\Carbon::now()->startOfYear()->startOfMonth()->month($month)->endOfMonth()) as $date)
+                                                <div class="col-6 col-md-4 col-lg-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="dates[]"
+                                                            value="{{ $date->toDateString() }}"
+                                                            id="date-{{ $date->toDateString() }}"
+                                                            {{ in_array($date->toDateString(), $selectedDates ?? []) ? 'checked' : '' }}>
+                                                        <label class="form-check-label"
+                                                            for="date-{{ $date->toDateString() }}">
+                                                            {{ $date->format('d/m/Y') }}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
                                     </div>
-                                @endforeach
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            @endforeach
+                    @endforeach
 
-            <button type="submit" class="btn btn-primary mt-3">Salva Disponibilità</button>
-        </form>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Salva Disponibilità</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </x-layout>

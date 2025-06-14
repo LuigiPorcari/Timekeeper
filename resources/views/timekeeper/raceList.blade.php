@@ -1,51 +1,48 @@
 <x-layout documentTitle="Timekeeper Races List">
-    <div class="pt-5">
-        <h1 class="mt-4">Lista delle gare</h1>
-    </div>
-    <div>
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th scope="col">Data</th>
-                    <th scope="col">Luogo</th>
-                    <th scope="col">Disciplina</th>
-                    <th scope="col">Cronometristi</th>
-                    <th scope="col">Report</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($timekeeperRaces as $race)
+    <div class="container mt-5 pt-5">
+        <h1 class="mb-4">Lista delle gare</h1>
+
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
                     <tr>
-                        <th scope="row">
-                            {{ $race->date_of_race }}
-                        </th>
-                        <td>
-                            {{ $race->place }}
-                        </td>
-                        <td>
-                            @forelse ($race->specialization_of_race as $specialization)
-                                {{ $specialization }}<br>
-                            @empty
-                                Non è assegnata nessuna specializzazione
-                            @endforelse
-                        </td>
-                        <td>
-                            @forelse ($race->users as $user)
-                                {{ $user->name }} {{ $user->surname }}<br>
-                            @empty
-                                Non è assegnato nessun cronometrista
-                            @endforelse
-                        </td>
-                        <td>Report</td>
+                        <th scope="col">Data</th>
+                        <th scope="col">Luogo</th>
+                        <th scope="col">Disciplina</th>
+                        <th scope="col">Cronometristi</th>
+                        <th scope="col">Report</th>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="6">
-                            <h2 class="custom-subtitle text-black">Non sei assegnato/a a nessuna gara</h2>
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @forelse ($timekeeperRaces as $race)
+                        <tr>
+                            <th scope="row">{{ $race->date_of_race }}</th>
+                            <td>{{ $race->place }}</td>
+                            <td>
+                                @forelse ($race->specialization_of_race as $specialization)
+                                    {{ $specialization }}<br>
+                                @empty
+                                    <em class="text-muted">Nessuna specializzazione</em>
+                                @endforelse
+                            </td>
+                            <td>
+                                @forelse ($race->users as $user)
+                                    {{ $user->name }} {{ $user->surname }}<br>
+                                @empty
+                                    <em class="text-muted">Nessun cronometrista</em>
+                                @endforelse
+                            </td>
+                            <td><span class="text-muted">Report</span></td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">
+                                Non sei assegnato/a a nessuna gara
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </x-layout>

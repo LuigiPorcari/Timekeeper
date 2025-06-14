@@ -90,4 +90,30 @@ class AdminController extends Controller
         Availability::whereIn('date_of_availability', $datesToRemove)->delete();
         return redirect()->back()->with('success', 'Disponibilità aggiornata con successo!');
     }
+
+    public function selectTimekeepers(Race $race)
+    {
+        $raceDate = $race->date_of_race;
+        $raceSpecializations = $race->specialization_of_race ?? [];
+
+        // Filtra i cronometristi con disponibilità e specializzazione in comune
+        $timekeepers = User::where('is_timekeeper', 1)
+            ->whereHas('availabilities', function ($query) use ($raceDate) {
+                $query->where('date_of_availability', $raceDate);
+            })
+            ->get()
+            ->filter(function ($user) use ($raceSpecializations) {
+                return count(array_intersect($user->specialization ?? [], $raceSpecializations)) > 0;
+            });
+
+        return view('admin.selectTimekeepers', compact('race', 'timekeepers'));
+    }
+
+    public function assignTimekeepers(Request $request, Race $race)
+    {
+        $race->users()->sync($request->input('timekeepers', []));
+
+        return redirect()->route('admin.racesList')->with('success', 'Cronometristi aggiornati!');
+    }
+
 }
