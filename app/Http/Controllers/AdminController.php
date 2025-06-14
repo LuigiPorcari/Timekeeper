@@ -115,5 +115,21 @@ class AdminController extends Controller
 
         return redirect()->route('admin.racesList')->with('success', 'Cronometristi aggiornati!');
     }
+    public function timekeeperReport(User $user)
+    {
+        $races = $user->races()->with([
+            'records' => function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            }
+        ])->get();
+
+        return view('admin.timekeeperReports', compact('user', 'races'));
+    }
+    public function raceReport(Race $race)
+    {
+        $records = $race->records()->with('user')->get();
+
+        return view('admin.racesReports', compact('race', 'records'));
+    }
 
 }

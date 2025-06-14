@@ -16,7 +16,9 @@
                 <tbody>
                     @forelse ($timekeeperRaces as $race)
                         <tr>
-                            <th scope="row">{{ $race->date_of_race }}</th>
+                            <th scope="row">
+                                {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}
+                            </th>
                             <td>{{ $race->place }}</td>
                             <td>
                                 @forelse ($race->specialization_of_race as $specialization)
@@ -32,7 +34,10 @@
                                     <em class="text-muted">Nessun cronometrista</em>
                                 @endforelse
                             </td>
-                            <td><span class="text-muted">Report</span></td>
+                            <td><span class="text-muted"> <a href="{{ route('records.manage', ['race' => $race->id]) }}"
+                                        class="btn btn-sm btn-primary">
+                                        Report
+                                    </a></span></td>
                         </tr>
                     @empty
                         <tr>

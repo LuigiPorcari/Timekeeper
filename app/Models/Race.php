@@ -10,6 +10,11 @@ class Race extends Model
     {
         return $this->belongsToMany(User::class);
     }
+    public function records()
+    {
+        return $this->hasMany(Record::class);
+    }
+
     protected $fillable = [
         'place',
         'date_of_race',

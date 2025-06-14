@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Race;
 use App\Models\User;
+use App\Models\Record;
 use App\Models\Availability;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TimekeeperController extends Controller
 {
@@ -37,6 +40,42 @@ class TimekeeperController extends Controller
         $timekeeperRaces = $user->races()->orderBy('date_of_race', 'asc')->get();
         return view('timekeeper.raceList', compact('timekeeperRaces'));
     }
+    public function manage(Race $race)
+    {
+        $records = $race->records()->where('user_id', Auth::id())->get();
+        return view('timekeeper.records.manage', compact('race', 'records'));
+    }
+    public function store(Request $request, Race $race)
+    {
+        $request->validate(['description' => 'required|string']);
 
+        Record::create([
+            'description' => $request->description,
+            'user_id' => auth()->id(),
+            'race_id' => $race->id,
+        ]);
+
+        return redirect()->route('records.manage', $race)->with('success', 'Record aggiunto con successo.');
+    }
+
+    public function update(Request $request, Record $record)
+    {
+        if ($record->user_id !== auth()->id()) {
+            return back()->with('error', 'Non hai i permessi per modificare questo record.');
+        }
+
+        $record->update($request->validate(['description' => 'required|string']));
+        return back()->with('success', 'Record aggiornato con successo.');
+    }
+
+    public function destroy(Record $record)
+    {
+        if ($record->user_id !== auth()->id()) {
+            return back()->with('error', 'Non hai i permessi per eliminare questo record.');
+        }
+
+        $record->delete();
+        return back()->with('success', 'Record eliminato con successo.');
+    }
 
 }

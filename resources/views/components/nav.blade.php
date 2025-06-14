@@ -5,12 +5,15 @@
             aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="{{ route('homepage') }}">Home</a>
+                    <a class="nav-link {{ request()->routeIs('homepage') ? 'active' : '' }}"
+                        href="{{ route('homepage') }}">Home</a>
                 </li>
-                @if (Auth::check())
+
+                @auth
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
                             data-bs-toggle="dropdown" aria-expanded="false">
@@ -31,15 +34,16 @@
                             </li>
                         </ul>
                     </li>
-                @endif
-
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Features</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Pricing</a>
-                </li>
+                @endauth
             </ul>
+
+            @auth
+                @if (Auth::user()->is_admin)
+                    <div class="ms-auto">
+                        <a class="btn btn-outline-primary" href="{{ route('admin.register.form') }}">Registrati Admin</a>
+                    </div>
+                @endif
+            @endauth
         </div>
     </div>
 </nav>

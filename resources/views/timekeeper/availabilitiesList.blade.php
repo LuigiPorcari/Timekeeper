@@ -34,7 +34,7 @@
                                             value="{{ $availability->id }}" id="date-{{ $availability->id }}"
                                             {{ in_array($availability->id, $selected ?? []) ? 'checked' : '' }}>
                                         <label class="form-check-label" for="date-{{ $availability->id }}">
-                                            {{ \Carbon\Carbon::parse($availability->date_of_availability)->format('d/m/Y') }}
+                                            {{ ucwords(\Carbon\Carbon::parse($availability->date_of_availability)->translatedFormat('l d')) }}
                                         </label>
                                     </div>
                                 </div>

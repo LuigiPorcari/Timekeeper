@@ -15,7 +15,8 @@
                     <div class="card-body">
                         <h5 class="card-title">{{ $timekeeper->name }} {{ $timekeeper->surname }}</h5>
                         <p><strong>Email:</strong> {{ $timekeeper->email }}</p>
-                        <p><strong>Data di nascita:</strong> {{ $timekeeper->date_of_birth }}</p>
+                        <p><strong>Data di nascita:</strong>
+                            {{ \Carbon\Carbon::parse($timekeeper->date_of_birth)->format('d-m-Y') }}</p>
                         @if ($timekeeper->residence)
                             <p><strong>Residenza:</strong> {{ $timekeeper->residence }}</p>
                         @endif
@@ -41,7 +42,7 @@
                         </p>
                         <p><strong>Disponibilità:</strong><br>
                             @forelse ($timekeeper->availabilities as $a)
-                                {{ $a->date_of_availability }}<br>
+                                {{ ucwords(\Carbon\Carbon::parse($a->date_of_availability)->translatedFormat('l d F')) }}<br>
                             @empty
                                 Nessuna Disponibilità
                             @endforelse

@@ -18,6 +18,11 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Availability::class);
     }
+    public function records()
+    {
+        return $this->hasMany(Record::class);
+    }
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 

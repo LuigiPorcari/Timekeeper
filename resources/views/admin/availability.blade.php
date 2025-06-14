@@ -44,7 +44,7 @@
                                                             {{ in_array($date->toDateString(), $selectedDates ?? []) ? 'checked' : '' }}>
                                                         <label class="form-check-label"
                                                             for="date-{{ $date->toDateString() }}">
-                                                            {{ $date->format('d/m/Y') }}
+                                                            {{ ucwords($date->translatedFormat('l d')) }}
                                                         </label>
                                                     </div>
                                                 </div>

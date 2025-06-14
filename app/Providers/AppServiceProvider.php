@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Carbon\Carbon;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Fortify\Contracts\ResetPasswordViewResponse;
 use App\Http\Responses\ResetPasswordViewResponse as CustomResetPasswordViewResponse;
@@ -21,6 +22,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Carbon::setLocale('it');
     }
 }

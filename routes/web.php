@@ -25,6 +25,8 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::get('/password-dimenticata', [ForgotPasswordController::class, 'showForgotForm'])->name('password.request');
 Route::post('/password-dimenticata', [ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
 //!ROTTE ADMIN
+Route::get('/admin/race/{race}/report', [AdminController::class, 'raceReport'])->name('admin.raceReport');
+Route::get('/admin/timekeeper/{user}/report', [AdminController::class, 'timekeeperReport'])->name('admin.timekeeperReport');
 Route::get('/admin/race/{race}/timekeepers', [AdminController::class, 'selectTimekeepers'])->name('race.timekeepers.select');
 Route::post('/admin/race/{race}/timekeepers', [AdminController::class, 'assignTimekeepers'])->name('race.timekeepers.assign');
 Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
@@ -37,6 +39,10 @@ Route::post('/admin/timekeeperDetails/update/{timekeeper}', [AdminController::cl
 Route::post('/admin/race/create', [AdminController::class, 'storeRace'])->name('race.store');
 Route::post('/admin/availability/store', [AdminController::class, 'storeAvailability'])->name('availability.store');
 //!ROTTE TIMEKEEPER
+Route::get('/races/{race}/records', [TimekeeperController::class, 'manage'])->name('records.manage');
+Route::post('/races/{race}/records', [TimekeeperController::class, 'store'])->name('records.store');
+Route::put('/records/{record}', [TimekeeperController::class, 'update'])->name('records.update');
+Route::delete('/records/{record}', [TimekeeperController::class, 'destroy'])->name('records.destroy');
 Route::get('/timekeeper/dashboard', [TimekeeperController::class, 'dashboard'])->name('timekeeper.dashboard');
 Route::get('/timekeeper/availability', [TimekeeperController::class, 'showForUser'])->name('availability.show');
 Route::get('/timekeeper/races', [TimekeeperController::class, 'racesListShow'])->name('timekeeper.racesList');

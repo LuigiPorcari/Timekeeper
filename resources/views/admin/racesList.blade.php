@@ -24,7 +24,9 @@
                 <tbody>
                     @forelse ($races as $race)
                         <tr>
-                            <th scope="row">{{ $race->date_of_race }}</th>
+                            <th scope="row">
+                                {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}
+                            </th>
                             <td>{{ $race->place }}</td>
                             <td>
                                 @forelse ($race->specialization_of_race as $specialization)
@@ -47,7 +49,9 @@
                                 </a>
                             </td>
                             <td>
-                                <span class="text-muted">Report</span>
+                                <a href="{{ route('admin.raceReport', $race) }}" class="btn btn-sm btn-primary">
+                                    Report
+                                </a>
                             </td>
                         </tr>
                     @empty

@@ -22,19 +22,22 @@
                             </th>
                             <td>
                                 @forelse ($timekeeper->availabilities as $a)
-                                    {{ $a->date_of_availability }}<br>
+                                    {{ ucwords(\Carbon\Carbon::parse($a->date_of_availability)->translatedFormat('l d F')) }}<br>
                                 @empty
                                     <em class="text-muted">Non ha segnato disponibilità</em>
                                 @endforelse
                             </td>
                             <td>
                                 @forelse ($timekeeper->races as $race)
-                                    {{ $race->date_of_race }}<br>
+                                    {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}<br>
                                 @empty
                                     <em class="text-muted">Non è assegnato a nessuna gara</em>
                                 @endforelse
                             </td>
-                            <td><span class="text-muted">Report</span></td>
+                            <td> <a href="{{ route('admin.timekeeperReport', $timekeeper) }}"
+                                    class="btn btn-sm btn-primary">
+                                    Report
+                                </a></td>
                         </tr>
                     @empty
                         <tr>
