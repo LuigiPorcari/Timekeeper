@@ -90,7 +90,6 @@ class AdminController extends Controller
         Availability::whereIn('date_of_availability', $datesToRemove)->delete();
         return redirect()->back()->with('success', 'Disponibilità aggiornata con successo!');
     }
-
     public function selectTimekeepers(Race $race)
     {
         $raceDate = $race->date_of_race;
@@ -108,7 +107,6 @@ class AdminController extends Controller
 
         return view('admin.selectTimekeepers', compact('race', 'timekeepers'));
     }
-
     public function assignTimekeepers(Request $request, Race $race)
     {
         $race->users()->sync($request->input('timekeepers', []));
@@ -131,5 +129,34 @@ class AdminController extends Controller
 
         return view('admin.racesReports', compact('race', 'records'));
     }
+    public function editRace(Race $race)
+    {
+        return view('admin.racesEdit', compact('race'));
+    }
+    public function updateRace(Request $request, Race $race)
+    {
+        $request->validate([
+            'date_of_race' => 'required|date',
+            'place' => 'required|string|max:255',
+            'specialization_of_race' => 'nullable|array',
+        ]);
+
+        $race->update($request->only(['date_of_race', 'place', 'specialization_of_race']));
+
+        return redirect()->route('admin.racesList')->with('success', 'Gara aggiornata con successo.');
+    }
+    public function destroyRace(Race $race)
+    {
+        // Elimina i record associati
+        $race->records()->delete();
+        // Elimina i collegamenti con i cronometristi
+        $race->users()->detach();
+        // Ora puoi eliminare la gara
+        $race->delete();
+        return redirect()->route('admin.racesList')->with('success', 'Gara eliminata con successo.');
+    }
+
+
+
 
 }

@@ -19,6 +19,7 @@
                         <th scope="col">Cronometristi</th>
                         <th scope="col">Inserisci cronometristi</th>
                         <th scope="col">Report</th>
+                        <th scope="col">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,6 +53,18 @@
                                 <a href="{{ route('admin.raceReport', $race) }}" class="btn btn-sm btn-primary">
                                     Report
                                 </a>
+                            </td>
+                            <td class="d-flex gap-2">
+                                <a href="{{ route('admin.race.edit', $race) }}"
+                                    class="btn btn-warning btn-sm">Modifica</a>
+
+                                <form method="POST" action="{{ route('admin.race.destroy', $race) }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        Elimina
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty

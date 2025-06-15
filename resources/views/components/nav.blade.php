@@ -24,13 +24,23 @@
                                 <a class="dropdown-item" href="{{ route('password.change') }}">Cambia Password</a>
                             </li>
                             <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
                                 <form action="{{ route('logout') }}" method="POST">
                                     @csrf
                                     <button type="submit" class="dropdown-item">Logout</button>
                                 </form>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <form method="POST" action="{{ route('user.destroy') }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-danger">
+                                        Elimina il mio account
+                                    </button>
+                                </form>
+
                             </li>
                         </ul>
                     </li>

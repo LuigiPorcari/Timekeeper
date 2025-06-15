@@ -25,6 +25,9 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::get('/password-dimenticata', [ForgotPasswordController::class, 'showForgotForm'])->name('password.request');
 Route::post('/password-dimenticata', [ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
 //!ROTTE ADMIN
+Route::get('/admin/race/{race}/edit', [AdminController::class, 'editRace'])->name('admin.race.edit');
+Route::put('/admin/race/{race}', [AdminController::class, 'updateRace'])->name('admin.race.update');
+Route::delete('/admin/race/{race}', [AdminController::class, 'destroyRace'])->name('admin.race.destroy');
 Route::get('/admin/race/{race}/report', [AdminController::class, 'raceReport'])->name('admin.raceReport');
 Route::get('/admin/timekeeper/{user}/report', [AdminController::class, 'timekeeperReport'])->name('admin.timekeeperReport');
 Route::get('/admin/race/{race}/timekeepers', [AdminController::class, 'selectTimekeepers'])->name('race.timekeepers.select');
@@ -52,4 +55,5 @@ Route::middleware('auth')->group(function () {
     //!ROTTE CAMBIO PASSWORD
     Route::get('/password/change', [PasswordController::class, 'showChangePasswordForm'])->name('password.change');
     Route::post('/password/change', [PasswordController::class, 'changePassword']);
+    Route::delete('/account/delete', [LoginController::class, 'destroy'])->name('user.destroy');
 });

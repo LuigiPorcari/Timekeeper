@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -50,5 +51,20 @@ class LoginController extends Controller
     protected function credentials(Request $request)
     {
         return $request->only('email', 'password');
+    }
+    public function destroy(Request $request)
+    {
+        $user = $request->user();
+
+        Auth::logout();
+        $user->availabilities()->detach();
+        $user->races()->detach();
+        $user->records()->delete();
+        $user->delete();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/')->with('success', 'Account eliminato con successo.');
     }
 }
