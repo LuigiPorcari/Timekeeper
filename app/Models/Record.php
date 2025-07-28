@@ -6,7 +6,25 @@ use Illuminate\Database\Eloquent\Model;
 
 class Record extends Model
 {
-    protected $fillable = ['description', 'user_id', 'race_id'];
+    protected $fillable = [
+        'daily_service',
+        'special_service',
+        'rate_documented',
+        'km_documented',
+        'amount_documented',
+        'travel_ticket_documented',
+        'food_documented',
+        'accommodation_documented',
+        'various_documented',
+        'food_not_documented',
+        'daily_allowances_not_documented',
+        'special_daily_allowances_not_documented',
+        'total',
+        'description',
+        'user_id',
+        'race_id',
+    ];
+
 
     public function user()
     {
@@ -16,5 +34,10 @@ class Record extends Model
     public function race()
     {
         return $this->belongsTo(Race::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(RecordAttachment::class);
     }
 }

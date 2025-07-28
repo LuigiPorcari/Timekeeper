@@ -1,12 +1,17 @@
 <x-layout documentTitle="Admin Register">
-    <div class="container my-5 pt-5">
+    <main class="container my-5 pt-5" id="main-content" aria-labelledby="register-title">
         <div class="row justify-content-center mt-4">
             <div class="col-12 col-md-8">
                 <div class="card shadow-sm">
-                    <div class="card-header fs-4">Registrati come Admin</div>
+                    <div class="card-header">
+                        <h1 id="register-title" class="fs-4 mb-0">Registrati come Admin</h1>
+                    </div>
                     <div class="card-body">
-                        <form method="POST" action="{{ route('admin.register') }}">
+                        <form method="POST" action="{{ route('admin.register') }}" aria-describedby="form-desc">
                             @csrf
+                            <p id="form-desc" class="visually-hidden">
+                                Compila i campi per creare un account amministratore.
+                            </p>
 
                             <!-- Nome -->
                             <div class="mb-3">
@@ -15,7 +20,7 @@
                                     class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}"
                                     required autofocus>
                                 @error('name')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback" role="alert">{{ $message }}</div>
                                 @enderror
                             </div>
 
@@ -26,7 +31,7 @@
                                     class="form-control @error('surname') is-invalid @enderror"
                                     value="{{ old('surname') }}" required>
                                 @error('surname')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback" role="alert">{{ $message }}</div>
                                 @enderror
                             </div>
 
@@ -37,7 +42,7 @@
                                     class="form-control @error('email') is-invalid @enderror"
                                     value="{{ old('email') }}" required>
                                 @error('email')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback" role="alert">{{ $message }}</div>
                                 @enderror
                             </div>
 
@@ -55,7 +60,7 @@
                                     class="form-control @error('residence') is-invalid @enderror"
                                     value="{{ old('residence') }}">
                                 @error('residence')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback" role="alert">{{ $message }}</div>
                                 @enderror
                             </div>
 
@@ -66,7 +71,7 @@
                                     class="form-control @error('domicile') is-invalid @enderror"
                                     value="{{ old('domicile') }}" required>
                                 @error('domicile')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback" role="alert">{{ $message }}</div>
                                 @enderror
                             </div>
 
@@ -96,7 +101,7 @@
                                 <input id="password" type="password" name="password"
                                     class="form-control @error('password') is-invalid @enderror" required>
                                 @error('password')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback" role="alert">{{ $message }}</div>
                                 @enderror
                             </div>
 
@@ -109,12 +114,15 @@
 
                             <!-- Submit -->
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">Registrati</button>
+                                <button type="submit" class="btn btn-primary"
+                                    aria-label="Conferma registrazione admin">
+                                    Registrati
+                                </button>
                             </div>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </x-layout>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Race;
+use App\Models\RaceTemp;
 use App\Models\User;
 use App\Models\Availability;
 use Illuminate\Http\Request;
@@ -41,14 +42,20 @@ class AdminController extends Controller
         $races = Race::all();
         return view('admin.racesList', compact('races'));
     }
+    public function racesTempListShow()
+    {
+        $racesTemp = RaceTemp::all();
+        return view('admin.racesTempList', compact('racesTemp'));
+    }
     public function createRaceShow()
     {
         return view('admin.createRace');
     }
     public function storeRace(Request $request)
     {
-        // Validazione base
+        // Validazione inclusiva del campo name
         $validated = $request->validate([
+            'name' => 'required|string|max:255',
             'date_of_race' => 'required|date',
             'place' => 'required|string|max:255',
             'specialization_of_race' => 'nullable|array',
@@ -57,6 +64,7 @@ class AdminController extends Controller
 
         // Creazione della nuova gara
         $race = new Race();
+        $race->name = $request->input('name');
         $race->date_of_race = $request->input('date_of_race');
         $race->place = $request->input('place');
         $race->specialization_of_race = $request->input('specialization_of_race', []); // salva come array
@@ -65,6 +73,7 @@ class AdminController extends Controller
         // Redirect con messaggio di successo
         return redirect()->route('admin.racesList')->with('success', 'Gara creata con successo!');
     }
+
     public function storeAvailabilityForm()
     {
         $selectedDates = Availability::pluck('date_of_availability')->toArray();
@@ -109,10 +118,27 @@ class AdminController extends Controller
     }
     public function assignTimekeepers(Request $request, Race $race)
     {
-        $race->users()->sync($request->input('timekeepers', []));
+        $request->validate([
+            'timekeepers' => 'nullable|array',
+            'timekeepers.*' => 'exists:users,id',
+            'leader' => 'nullable|exists:users,id',
+        ]);
 
-        return redirect()->route('admin.racesList')->with('success', 'Cronometristi aggiornati!');
+        $assigned = collect($request->input('timekeepers', []));
+        $leaderId = $request->input('leader');
+
+        // Mappa cronometristi assegnati con flag is_leader (true solo se corrisponde)
+        $syncData = $assigned->mapWithKeys(function ($id) use ($leaderId) {
+            return [$id => ['is_leader' => ($id == $leaderId)]];
+        })->toArray();
+
+        // Sincronizza cronometristi per la gara
+        $race->users()->sync($syncData);
+
+        return redirect()->route('admin.racesList')->with('success', 'Cronometristi aggiornati con successo.');
     }
+
+
     public function timekeeperReport(User $user)
     {
         $races = $user->races()->with([
@@ -126,8 +152,28 @@ class AdminController extends Controller
     public function raceReport(Race $race)
     {
         $records = $race->records()->with('user')->get();
+        $cms = $race->users()->wherePivot('is_leader', true)->first();
+        $cmsRecord = $cms ? $race->records()->where('user_id', $cms->id)->first() : null;
 
-        return view('admin.racesReports', compact('race', 'records'));
+        $totalSum = 0;
+
+        foreach ($records as $record) {
+            $useCmsValues = $cmsRecord && $record->user_id !== $cmsRecord->user_id;
+            $amount = $useCmsValues ? $cmsRecord->amount_documented : $record->amount_documented;
+
+            $total = $amount
+                + ($record->travel_ticket_documented ?? 0)
+                + ($record->food_documented ?? 0)
+                + ($record->accommodation_documented ?? 0)
+                + ($record->various_documented ?? 0)
+                + ($record->food_not_documented ?? 0)
+                + ($record->daily_allowances_not_documented ?? 0)
+                + ($record->special_daily_allowances_not_documented ?? 0);
+
+            $totalSum += $total;
+        }
+
+        return view('admin.racesReports', compact('race', 'records', 'cmsRecord', 'totalSum'));
     }
     public function editRace(Race $race)
     {
@@ -136,15 +182,17 @@ class AdminController extends Controller
     public function updateRace(Request $request, Race $race)
     {
         $request->validate([
+            'name' => 'required|string|max:255',
             'date_of_race' => 'required|date',
             'place' => 'required|string|max:255',
             'specialization_of_race' => 'nullable|array',
         ]);
 
-        $race->update($request->only(['date_of_race', 'place', 'specialization_of_race']));
+        $race->update($request->only(['name', 'date_of_race', 'place', 'specialization_of_race']));
 
         return redirect()->route('admin.racesList')->with('success', 'Gara aggiornata con successo.');
     }
+
     public function destroyRace(Race $race)
     {
         // Elimina i record associati
@@ -155,8 +203,4 @@ class AdminController extends Controller
         $race->delete();
         return redirect()->route('admin.racesList')->with('success', 'Gara eliminata con successo.');
     }
-
-
-
-
 }

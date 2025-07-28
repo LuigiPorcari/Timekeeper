@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Reimposta Password</title>
+    <title>Richiesta gara</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -60,15 +60,13 @@
 
 <body>
     <div class="container" role="main">
-        <h1>Reimposta la tua Password</h1>
-        <p>Hai ricevuto questa email perché è stata richiesta la reimpostazione della password per il tuo account.</p>
-        <p>Per procedere, fai clic sul pulsante qui sotto:</p>
-        <a href="{{ $url }}" class="button">Reimposta Password</a>
-        <p>Se non hai richiesto questa modifica, puoi ignorare questa email. Nessuna azione sarà intrapresa.</p>
+        <h1>Gara rifiutata</h1>
+        <p>La gara <strong>{{ $raceName }}</strong> è stata rifiutata.</p>
+        <p>Cordiali saluti</p>
+        <a href="{{ route('homepage') }}" class="button">Visita il sito</a>
         <div class="footer">
             © {{ date('Y') }} TimeKeeper. Tutti i diritti riservati.
         </div>
     </div>
 </body>
-
 </html>

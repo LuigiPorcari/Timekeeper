@@ -12,7 +12,20 @@ return new class extends Migration {
     {
         Schema::create('records', function (Blueprint $table) {
             $table->id();
-            $table->text('description'); // permette molti caratteri
+            $table->integer('daily_service')->nullable();
+            $table->integer('special_service')->nullable();
+            $table->string('rate_documented')->nullable();
+            $table->double('km_documented')->nullable();
+            $table->double('amount_documented')->nullable();
+            $table->double('travel_ticket_documented')->nullable();
+            $table->double('food_documented')->nullable();
+            $table->double('accommodation_documented')->nullable();
+            $table->double('various_documented')->nullable();
+            $table->double('food_not_documented')->nullable();
+            $table->double('daily_allowances_not_documented')->nullable();
+            $table->double('special_daily_allowances_not_documented')->nullable();
+            $table->double('total')->nullable();
+            $table->text('description')->nullable(); // permette molti caratteri
             $table->unsignedBigInteger('user_id');
             $table->foreign('user_id')->references('id')->on('users');
             $table->unsignedBigInteger('race_id');

@@ -1,17 +1,28 @@
-<x-layout documentTitle="Admin Create Race">
+<x-layout documentTitle="Guest Create Race Temp">
     <main class="container pt-5 mt-5" id="main-content">
-        <h1 class="mb-4">Crea nuova gara</h1>
+        <h1 class="mb-4">Crea nuova gara temporanea</h1>
 
-        <form action="{{ route('race.store') }}" method="POST" aria-describedby="race-form-description">
+        <form action="{{ route('raceTemp.store') }}" method="POST" aria-describedby="race-form-description">
             <p id="race-form-description" class="visually-hidden">
-                Inserisci la data, il luogo e le specializzazioni tecniche relative alla gara da creare.
+                Inserisci la data, il luogo e le specializzazioni tecniche relative alla gara temporanea da creare.
             </p>
 
             @csrf
             <div class="row g-4">
                 <div class="col-md-4">
                     <section aria-labelledby="gara-info">
-                        <h2 id="gara-info" class="h5 mb-3">Informazioni generali sulla gara</h2>
+                        <h2 id="gara-info" class="h5 mb-3">Informazioni generali sulla gara temporanea</h2>
+
+                        {{-- Inserimento mail --}}
+                        <div class="form-group">
+                            <label for="email" class="form-label">Inserisci la mail a cui vuoi essere contattato</label>
+                            <input id="email" type="email" name="email"
+                                class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}"
+                                required>
+                            @error('email')
+                                <div class="invalid-feedback" role="alert">{{ $message }}</div>
+                            @enderror
+                        </div>
 
                         {{-- Nome della gara --}}
                         <div class="form-group">
@@ -114,8 +125,9 @@
                             <div class="col-md-4">
                                 @foreach (['apparecchiature_di_arrivo', 'tabellone', 'tablet/smartphone'] as $spec)
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" name="specialization_of_race[]"
-                                            value="{{ $spec }}" id="{{ $spec }}"
+                                        <input type="checkbox" class="form-check-input"
+                                            name="specialization_of_race[]" value="{{ $spec }}"
+                                            id="{{ $spec }}"
                                             {{ in_array($spec, $timekeeper->specialization ?? []) ? 'checked' : '' }}>
                                         <label class="form-check-label fw-bold fs-5" for="{{ $spec }}">
                                             {{ ucwords(str_replace('_', ' ', $spec)) }}

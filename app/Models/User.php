@@ -12,7 +12,14 @@ class User extends Authenticatable
 {
     public function races()
     {
-        return $this->belongsToMany(Race::class);
+        return $this->belongsToMany(Race::class)->withPivot('is_leader')->withTimestamps();
+    }
+    public function isLeaderOf(Race $race)
+    {
+        return $this->races()
+            ->where('race_id', $race->id)
+            ->wherePivot('is_leader', true)
+            ->exists();
     }
     public function availabilities()
     {
@@ -42,7 +49,8 @@ class User extends Authenticatable
         'auto',
         'password',
         'is_timekeeper',
-        'is_admin'
+        'is_admin',
+        'is_secretariat'
     ];
 
     /**

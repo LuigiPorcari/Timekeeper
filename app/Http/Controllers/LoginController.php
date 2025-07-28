@@ -25,6 +25,9 @@ class LoginController extends Controller
             if ($user->is_timekeeper) {
                 return redirect()->route('timekeeper.dashboard');
             }
+            if ($user->is_secretariat) {
+                return redirect()->route('secretariat.dashboard');
+            }
         }
         throw ValidationException::withMessages([
             'email' => [trans('auth.failed')],

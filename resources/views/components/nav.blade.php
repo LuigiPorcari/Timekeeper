@@ -1,8 +1,9 @@
-<nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top">
+<nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top" role="navigation" aria-label="Menu principale">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">TimeKeeper</a>
+        <a class="navbar-brand" href="{{ route('homepage') }}">TimeKeeper</a>
+
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Mostra/Nascondi menu">
             <span class="navbar-toggler-icon"></span>
         </button>
 
@@ -36,11 +37,10 @@
                                 <form method="POST" action="{{ route('user.destroy') }}">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-danger">
+                                    <button type="submit" class="dropdown-item text-danger">
                                         Elimina il mio account
                                     </button>
                                 </form>
-
                             </li>
                         </ul>
                     </li>
@@ -50,7 +50,12 @@
             @auth
                 @if (Auth::user()->is_admin)
                     <div class="ms-auto">
-                        <a class="btn btn-outline-primary" href="{{ route('admin.register.form') }}">Registrati Admin</a>
+                        <a class="btn btn-outline-primary" href="{{ route('secretariat.register.form') }}">
+                            Registrati Segreteria
+                        </a>
+                        <a class="btn btn-outline-primary" href="{{ route('admin.register.form') }}">
+                            Registrati Admin
+                        </a>
                     </div>
                 @endif
             @endauth

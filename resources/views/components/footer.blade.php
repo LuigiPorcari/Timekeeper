@@ -1,122 +1,53 @@
-<!-- Footer -->
-<footer class="text-center text-lg-start bg-body-tertiary text-muted">
-    <!-- Section: Social media -->
+<footer class="text-center text-lg-start bg-body-tertiary text-muted" role="contentinfo">
+    <!-- Social media -->
     <section class="d-flex justify-content-center justify-content-lg-between p-4 border-bottom">
-        <!-- Left -->
         <div class="me-5 d-none d-lg-block">
-            <span>Get connected with us on social networks:</span>
+            <span>Seguici sui social:</span>
         </div>
-        <!-- Left -->
-
-        <!-- Right -->
         <div>
-            <a href="" class="me-4 text-reset">
-                <i class="fab fa-facebook-f"></i>
-            </a>
-            <a href="" class="me-4 text-reset">
-                <i class="fab fa-twitter"></i>
-            </a>
-            <a href="" class="me-4 text-reset">
-                <i class="fab fa-google"></i>
-            </a>
-            <a href="" class="me-4 text-reset">
-                <i class="fab fa-instagram"></i>
-            </a>
-            <a href="" class="me-4 text-reset">
-                <i class="fab fa-linkedin"></i>
-            </a>
-            <a href="" class="me-4 text-reset">
-                <i class="fab fa-github"></i>
-            </a>
+            <a href="#" class="me-4 text-reset" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" class="me-4 text-reset" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+            <a href="#" class="me-4 text-reset" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            <a href="#" class="me-4 text-reset" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
         </div>
-        <!-- Right -->
     </section>
-    <!-- Section: Social media -->
 
-    <!-- Section: Links  -->
-    <section class="">
+    <!-- Link utili -->
+    <section>
         <div class="container text-center text-md-start mt-5">
-            <!-- Grid row -->
             <div class="row mt-3">
-                <!-- Grid column -->
+                <!-- Informazioni -->
                 <div class="col-md-3 col-lg-4 col-xl-3 mx-auto mb-4">
-                    <!-- Content -->
                     <h6 class="text-uppercase fw-bold mb-4">
-                        <i class="fas fa-gem me-3"></i>Company name
+                        <i class="fas fa-stopwatch me-3"></i>Cronometristi Associati
                     </h6>
-                    <p>
-                        Here you can use rows and columns to organize your footer content. Lorem ipsum
-                        dolor sit amet, consectetur adipisicing elit.
-                    </p>
+                    <p>Portale per la gestione gare, disponibilità e cronometristi.</p>
                 </div>
-                <!-- Grid column -->
 
-                <!-- Grid column -->
-                <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
-                    <!-- Links -->
-                    <h6 class="text-uppercase fw-bold mb-4">
-                        Products
-                    </h6>
-                    <p>
-                        <a href="#!" class="text-reset">Angular</a>
-                    </p>
-                    <p>
-                        <a href="#!" class="text-reset">React</a>
-                    </p>
-                    <p>
-                        <a href="#!" class="text-reset">Vue</a>
-                    </p>
-                    <p>
-                        <a href="#!" class="text-reset">Laravel</a>
-                    </p>
-                </div>
-                <!-- Grid column -->
-
-                <!-- Grid column -->
+                <!-- Collegamenti -->
                 <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
-                    <!-- Links -->
-                    <h6 class="text-uppercase fw-bold mb-4">
-                        Useful links
-                    </h6>
-                    <p>
-                        <a href="#!" class="text-reset">Pricing</a>
+                    <h6 class="text-uppercase fw-bold mb-4">Collegamenti</h6>
+                    <p><a href="{{ route('login') }}" class="text-reset">Login</a></p>
+                    <p><a href="{{ route('timekeeper.register') }}" class="text-reset">Registrati</a></p>
+                    <p><a href="#" class="text-reset iubenda-cs-privacy-policy" title="Privacy Policy">Privacy</a>
                     </p>
-                    <p>
-                        <a href="#!" class="text-reset">Settings</a>
-                    </p>
-                    <p>
-                        <a href="#!" class="text-reset">Orders</a>
-                    </p>
-                    <p>
-                        <a href="#!" class="text-reset">Help</a>
+                    <p><a href="#" class="text-reset iubenda-cs-cookie-policy" title="Cookie Policy">Cookie</a>
                     </p>
                 </div>
-                <!-- Grid column -->
 
-                <!-- Grid column -->
+                <!-- Contatti -->
                 <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mb-md-0 mb-4">
-                    <!-- Links -->
-                    <h6 class="text-uppercase fw-bold mb-4">Contact</h6>
-                    <p><i class="fas fa-home me-3"></i> New York, NY 10012, US</p>
-                    <p>
-                        <i class="fas fa-envelope me-3"></i>
-                        info@example.com
-                    </p>
-                    <p><i class="fas fa-phone me-3"></i> + 01 234 567 88</p>
-                    <p><i class="fas fa-print me-3"></i> + 01 234 567 89</p>
+                    <h6 class="text-uppercase fw-bold mb-4">Contatti</h6>
+                    <p><i class="fas fa-home me-3"></i> Via dello Sport, 100, IT</p>
+                    <p><i class="fas fa-envelope me-3"></i> info@cronometristi.it</p>
+                    <p><i class="fas fa-phone me-3"></i> +39 0123 456789</p>
                 </div>
-                <!-- Grid column -->
             </div>
-            <!-- Grid row -->
         </div>
     </section>
-    <!-- Section: Links  -->
 
     <!-- Copyright -->
-    <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
-        © 2021 Copyright:
-        <a class="text-reset fw-bold" href="https://mdbootstrap.com/">MDBootstrap.com</a>
+    <div class="text-center p-4 bg-light small">
+        © {{ date('Y') }} Cronometristi Associati. Tutti i diritti riservati.
     </div>
-    <!-- Copyright -->
 </footer>
-<!-- Footer -->

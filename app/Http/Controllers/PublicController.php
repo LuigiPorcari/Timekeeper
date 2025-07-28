@@ -18,6 +18,9 @@ class PublicController extends Controller
             if ($user->is_timekeeper) {
                 return redirect()->route('timekeeper.dashboard');
             }
+            if ($user->is_secretariat) {
+                return redirect()->route('secretariat.dashboard');
+            }
         }
         // Mostra la home per gli utenti non autenticati
         return view('welcome');

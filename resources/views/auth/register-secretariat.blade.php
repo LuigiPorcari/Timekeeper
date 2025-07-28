@@ -1,17 +1,16 @@
-<x-layout documentTitle="Student Register">
-    <main class="container my-5 pt-5" id="main-content" aria-labelledby="student-register-title">
+<x-layout documentTitle="Secretariat Register">
+    <main class="container my-5 pt-5" id="main-content" aria-labelledby="register-title">
         <div class="row justify-content-center mt-4">
             <div class="col-12 col-md-8">
                 <div class="card shadow-sm">
                     <div class="card-header">
-                        <h1 id="student-register-title" class="fs-4 mb-0">Registrati come Cronometrista</h1>
+                        <h1 id="register-title" class="fs-4 mb-0">Registrati come Segreteria</h1>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="{{ route('timekeeper.register') }}"
-                            aria-describedby="form-description">
+                        <form method="POST" action="{{ route('secretariat.register') }}" aria-describedby="form-desc">
                             @csrf
-                            <p id="form-description" class="visually-hidden">
-                                Compila tutti i campi richiesti per registrarti come cronometrista.
+                            <p id="form-desc" class="visually-hidden">
+                                Compila i campi per creare un account segreteria.
                             </p>
 
                             <!-- Nome -->
@@ -116,7 +115,7 @@
                             <!-- Submit -->
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary"
-                                    aria-label="Conferma registrazione cronometrista">
+                                    aria-label="Conferma registrazione admin">
                                     Registrati
                                 </button>
                             </div>
