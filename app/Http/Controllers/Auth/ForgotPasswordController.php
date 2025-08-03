@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
+use App\Services\BrevoMailer;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Password;
 
 class ForgotPasswordController extends Controller
@@ -17,11 +19,23 @@ class ForgotPasswordController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        $status = Password::sendResetLink($request->only('email'));
+        $user = User::where('email', $request->email)->first();
 
-        return $status === Password::RESET_LINK_SENT
-            ? back()->with('status', __($status))
-            : back()->withErrors(['email' => __($status)]);
+        if ($user) {
+            $token = app('auth.password.broker')->createToken($user);
+            $link = url(route('password.reset', ['token' => $token, 'email' => $user->email]));
+
+            $mailer = new BrevoMailer();
+            $mailer->sendEmail(
+                $user->email,
+                'Reimposta la tua password',
+                'emails.password.reset',
+                ['nome' => $user->name, 'url' => $link]
+            );
+
+            return back()->with('status', 'Email inviata!');
+        }
+
+        return back()->withErrors(['email' => 'Email non trovata.']);
     }
 }
-
