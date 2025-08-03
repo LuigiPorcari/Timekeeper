@@ -14,20 +14,28 @@ class BrevoMailer
     public function __construct()
     {
         $config = Configuration::getDefaultConfiguration()->setApiKey('api-key', env('BREVO_API_KEY'));
+        \Log::info('Brevo API Key: ' . env('BREVO_API_KEY'));
         $this->apiInstance = new TransactionalEmailsApi(new HttpClient(), $config);
     }
 
     public function sendEmail($toEmail, $subject, $view, $data = [])
     {
-        $htmlContent = view($view, $data)->render();
+        \Log::info('CHIAVE USATA: ' . env('BREVO_API_KEY'));
 
-        $sendSmtpEmail = new SendSmtpEmail([
-            'subject' => $subject,
-            'sender' => ['name' => config('app.name'), 'email' => config('mail.from.address')],
-            'to' => [['email' => $toEmail]],
-            'htmlContent' => $htmlContent
-        ]);
+        try {
+            $htmlContent = view($view, $data)->render();
 
-        return $this->apiInstance->sendTransacEmail($sendSmtpEmail);
+            $sendSmtpEmail = new SendSmtpEmail([
+                'subject' => $subject,
+                'sender' => ['name' => config('app.name'), 'email' => config('mail.from.address')],
+                'to' => [['email' => $toEmail]],
+                'htmlContent' => $htmlContent
+            ]);
+
+            return $this->apiInstance->sendTransacEmail($sendSmtpEmail);
+        } catch (\Exception $e) {
+            \Log::error('Errore invio mail: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }
