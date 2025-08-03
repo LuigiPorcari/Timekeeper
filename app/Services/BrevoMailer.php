@@ -27,7 +27,7 @@ class BrevoMailer
 
             $sendSmtpEmail = new SendSmtpEmail([
                 'subject' => $subject,
-                'sender' => ['name' => config('app.name'), 'email' => config('mail.from.address')],
+                'sender' => ['name' => 'TIMEKEEPER', 'email' => config('mail.from.address')],
                 'to' => [['email' => $toEmail]],
                 'htmlContent' => $htmlContent
             ]);
