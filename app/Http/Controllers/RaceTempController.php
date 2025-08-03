@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Race;
 use App\Models\RaceTemp;
 use Illuminate\Http\Request;
+use App\Services\BrevoMailer;
 use App\Mail\RaceAcceptedMail;
 use App\Mail\RaceRejectedMail;
 use Illuminate\Support\Facades\Mail;
@@ -51,7 +52,13 @@ class RaceTempController extends Controller
         ]);
 
         // Invia la mail di notifica all'indirizzo salvato
-        Mail::to($race->email)->send(new RaceAcceptedMail($race->name));
+        $brevo = new BrevoMailer();
+        $brevo->sendEmail(
+            $race->email,
+            'Gara accettata',
+            'emails.race-accepted',
+            ['nome_gara' => $race->name]
+        );
 
         // Elimina la gara temporanea
         $race->delete();
@@ -62,7 +69,13 @@ class RaceTempController extends Controller
     public function reject(RaceTemp $race)
     {
         // Invia la mail di rifiuto
-        Mail::to($race->email)->send(new RaceRejectedMail($race->name));
+        $brevo = new BrevoMailer();
+        $brevo->sendEmail(
+            $race->email,
+            'Gara rifiutata',
+            'emails.race-rejected',
+            ['nome_gara' => $race->name]
+        );
 
         // Elimina la gara temporanea
         $race->delete();
