@@ -47,8 +47,8 @@
                 @endauth
             </ul>
 
-            {{-- @auth
-                @if (Auth::user()->is_admin) --}}
+            @auth
+                @if (Auth::user()->is_admin)
                     <div class="ms-auto">
                         <a class="btn btn-outline-primary" href="{{ route('secretariat.register.form') }}">
                             Registrati Segreteria
@@ -57,8 +57,8 @@
                             Registrati Admin
                         </a>
                     </div>
-                {{-- @endif
-            @endauth --}}
+                @endif
+            @endauth
         </div>
     </div>
 </nav>
