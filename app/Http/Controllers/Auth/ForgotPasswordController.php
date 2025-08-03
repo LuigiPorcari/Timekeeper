@@ -29,7 +29,7 @@ class ForgotPasswordController extends Controller
             $mailer->sendEmail(
                 $user->email,
                 'Reimposta la tua password',
-                'emails.password.reset',
+                'emails.password-reset',
                 ['nome' => $user->name, 'url' => $link]
             );
 
