@@ -56,8 +56,8 @@ class RaceTempController extends Controller
         $brevo->sendEmail(
             $race->email,
             'Gara accettata',
-            'emails.race-accepted',
-            ['nome_gara' => $race->name]
+            'emails.race.accepted',
+            ['raceName' => $race->name]
         );
 
         // Elimina la gara temporanea
@@ -73,8 +73,8 @@ class RaceTempController extends Controller
         $brevo->sendEmail(
             $race->email,
             'Gara rifiutata',
-            'emails.race-rejected',
-            ['nome_gara' => $race->name]
+            'emails.race.rejected',
+            ['raceName' => $race->name]
         );
 
         // Elimina la gara temporanea
