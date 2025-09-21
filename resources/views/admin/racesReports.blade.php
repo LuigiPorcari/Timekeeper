@@ -1,96 +1,145 @@
 <x-layout documentTitle="Report Gara">
-    <main class="container mt-5 pt-5" id="main-content" aria-labelledby="report-title">
-        <h1 id="report-title" class="mb-4">
-            Report per la Gara {{ $race->name }} di
-            {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}
-            a {{ $race->place }}
-        </h1>
+    <main class="container-fluid mt-5 pt-5" id="main-content" aria-labelledby="report-title">
+        <div class="row justify-content-center">
+            <div class="col-12 col-xxl-11">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header border-0 bg-white">
+                        <h1 id="report-title" class="h3 mb-1">
+                            Report per la Gara {{ $race->name }}
+                        </h1>
+                        <p class="text-muted mb-0">
+                            {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}
+                            @if ($race->date_end)
+                            / {{ ucwords(\Carbon\Carbon::parse($race->date_end)->translatedFormat('l d F')) }}
+                            @endif
+                            · {{ $race->place }}
+                        </p>
+                    </div>
 
-        @if ($records->isEmpty())
-            <p class="text-muted" role="status">Nessun record disponibile per questa gara.</p>
-        @else
-            <table class="table table-bordered table-striped mt-3">
-                <thead class="table-light">
-                    <tr>
-                        <th rowspan="2">Operatore</th>
-                        <th rowspan="2">Servizio Giornaliero</th>
-                        <th rowspan="2">Servizio Speciale</th>
-                        <th rowspan="2">Tariffa</th>
-                        <th rowspan="2">Km</th>
-                        <th rowspan="2">€ Km (0.36)</th>
-                        <th colspan="4" class="text-center">Spesa Documentata</th>
-                        <th colspan="3" class="text-center">Spesa NON Documentata</th>
-                        <th rowspan="2">Totale</th>
-                        <th rowspan="2">Descrizione</th>
-                        <th rowspan="2">Allegati</th>
-                    </tr>
-                    <tr>
-                        <th>Biglietto</th>
-                        <th>Vitto</th>
-                        <th>Alloggio</th>
-                        <th>Varie</th>
-                        <th>Vitto</th>
-                        <th>Diaria</th>
-                        <th>Diaria Spec.</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($records as $record)
-                        @php
-                            $useCmsValues = $cmsRecord && $record->user_id !== $cmsRecord->user_id;
-                            $km = $useCmsValues ? $cmsRecord->km_documented : $record->km_documented;
-                            $amount = $useCmsValues ? $cmsRecord->amount_documented : $record->amount_documented;
+                    <div class="card-body pt-0">
+                        @if ($records->isEmpty())
+                            <p class="text-muted" role="status">Nessun record disponibile per questa gara.</p>
+                        @else
+                            <div class="table-responsive-md">
+                                <table
+                                    class="table table-striped table-hover align-middle table-bordered table-border-black mt-3">
+                                    <caption class="visually-hidden">
+                                        Dettaglio rendicontazioni per operatore, con tipologia, tariffa chilometrica e
+                                        spese.
+                                    </caption>
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th rowspan="2">Operatore</th>
+                                            <th rowspan="2">Tipo</th> {{-- NUOVO --}}
+                                            <th rowspan="2">€/Km</th> {{-- NUOVO --}}
+                                            <th rowspan="2">Servizio Giornaliero</th>
+                                            <th rowspan="2">Servizio Speciale</th>
+                                            <th rowspan="2">Tariffa</th>
+                                            <th rowspan="2">Km</th>
+                                            <th rowspan="2">Importo Km</th>
+                                            <th colspan="4" class="text-center">Spesa Documentata</th>
+                                            <th colspan="3" class="text-center">Spesa NON Documentata</th>
+                                            <th rowspan="2">Totale</th>
+                                            <th rowspan="2">Descrizione</th>
+                                            <th rowspan="2">Allegati</th>
+                                        </tr>
+                                        <tr>
+                                            <th>Biglietto</th>
+                                            <th>Vitto</th>
+                                            <th>Alloggio</th>
+                                            <th>Varie</th>
+                                            <th>Vitto</th>
+                                            <th>Diaria</th>
+                                            <th>Diaria Spec.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($records as $record)
+                                            @php
+                                                // Se esiste un record DSC e questa riga non è del DSC, usa i suoi km per la visualizzazione
+                                                $useCmsValues = $cmsRecord && $record->user_id !== $cmsRecord->user_id;
+                                                $kmDisplay = $useCmsValues
+                                                    ? $cmsRecord->km_documented
+                                                    : $record->km_documented;
 
-                            $total =
-                                $amount +
-                                ($record->travel_ticket_documented ?? 0) +
-                                ($record->food_documented ?? 0) +
-                                ($record->accommodation_documented ?? 0) +
-                                ($record->various_documented ?? 0) +
-                                ($record->food_not_documented ?? 0) +
-                                ($record->daily_allowances_not_documented ?? 0) +
-                                ($record->special_daily_allowances_not_documented ?? 0);
-                        @endphp
-                        <tr>
-                            <td>{{ $record->user->name }} {{ $record->user->surname }}</td>
-                            <td>{{ $record->daily_service }}</td>
-                            <td>{{ $record->special_service }}</td>
-                            <td>{{ $record->rate_documented }}</td>
-                            <td>{{ $km }}</td>
-                            <td>{{ number_format($amount, 2) }}</td>
-                            <td>{{ $record->travel_ticket_documented }}</td>
-                            <td>{{ $record->food_documented }}</td>
-                            <td>{{ $record->accommodation_documented }}</td>
-                            <td>{{ $record->various_documented }}</td>
-                            <td>{{ $record->food_not_documented }}</td>
-                            <td>{{ $record->daily_allowances_not_documented }}</td>
-                            <td>{{ $record->special_daily_allowances_not_documented }}</td>
-                            <td><strong>{{ number_format($total, 2) }}</strong></td>
-                            <td>{{ $record->description }}</td>
-                            <td>
-                                @if ($record->attachments && $record->attachments->count())
-                                    <ul class="list-unstyled mb-0">
-                                        @foreach ($record->attachments as $attachment)
-                                            <li>
-                                                <a href="{{ route('attachments.show', $attachment) }}" target="_blank">
-                                                    {{ $attachment->original_name }}
-                                                </a>
-                                            </li>
+                                                // €/Km: usa il valore del record, fallback 0.36
+                                                $ratePerKm = $record->euroKM !== null ? (float) $record->euroKM : 0.36;
+
+                                                // Importo km con euroKM effettivo
+                                                $amount = $kmDisplay
+                                                    ? round(((float) $kmDisplay) * $ratePerKm, 2)
+                                                    : 0.0;
+
+                                                // Totale di riga
+                                                $total =
+                                                    $amount +
+                                                    (float) ($record->travel_ticket_documented ?? 0) +
+                                                    (float) ($record->food_documented ?? 0) +
+                                                    (float) ($record->accommodation_documented ?? 0) +
+                                                    (float) ($record->various_documented ?? 0) +
+                                                    (float) ($record->food_not_documented ?? 0) +
+                                                    (float) ($record->daily_allowances_not_documented ?? 0) +
+                                                    (float) ($record->special_daily_allowances_not_documented ?? 0);
+                                            @endphp
+
+                                            <tr>
+                                                <td>{{ $record->user->name }} {{ $record->user->surname }}</td>
+                                                <td>{{ $record->type ?? '—' }}</td> {{-- NUOVO --}}
+                                                <td>{{ number_format($ratePerKm, 2, ',', '.') }}</td>
+                                                {{-- NUOVO --}}
+                                                <td>{{ $record->daily_service }}</td>
+                                                <td>{{ $record->special_service }}</td>
+                                                <td>{{ $record->rate_documented }}</td>
+                                                <td>{{ $kmDisplay }}</td>
+                                                <td>{{ number_format((float) $amount, 2, ',', '.') }}</td>
+                                                <td>{{ $record->travel_ticket_documented }}</td>
+                                                <td>{{ $record->food_documented }}</td>
+                                                <td>{{ $record->accommodation_documented }}</td>
+                                                <td>{{ $record->various_documented }}</td>
+                                                <td>{{ $record->food_not_documented }}</td>
+                                                <td>{{ $record->daily_allowances_not_documented }}</td>
+                                                <td>{{ $record->special_daily_allowances_not_documented }}</td>
+                                                <td><strong>{{ number_format($total, 2, ',', '.') }}</strong></td>
+                                                <td style="max-width: 320px;">
+                                                    <span class="d-inline-block text-truncate" style="max-width: 320px;"
+                                                        title="{{ $record->description }}">
+                                                        {{ $record->description }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if ($record->attachments && $record->attachments->count())
+                                                        <ul class="list-unstyled mb-0">
+                                                            @foreach ($record->attachments as $attachment)
+                                                                <li>
+                                                                    <a href="{{ route('attachments.show', $attachment) }}"
+                                                                        target="_blank"
+                                                                        class="link-primary text-decoration-none">
+                                                                        {{ $attachment->original_name }}
+                                                                    </a>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    @else
+                                                        <em class="text-muted">Nessuno</em>
+                                                    @endif
+                                                </td>
+                                            </tr>
                                         @endforeach
-                                    </ul>
-                                @else
-                                    <em>Nessuno</em>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                    <tr class="table-secondary fw-bold">
-                        <td colspan="13" class="text-end">Totale Generale</td>
-                        <td>{{ number_format($totalSum, 2) }}</td>
-                        <td colspan="2"></td>
-                    </tr>
-                </tbody>
-            </table>
-        @endif
+
+                                        {{-- Totale complessivo --}}
+                                        <tr class="table-secondary fw-bold">
+                                            {{-- +2 colonne (Tipo, €/Km) => label span 15 col --}}
+                                            <td colspan="15" class="text-end">Totale Generale</td>
+                                            <td>{{ number_format($totalSum, 2, ',', '.') }}</td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 </x-layout>

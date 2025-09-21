@@ -1,0 +1,426 @@
+/* ===== FICr skin — palette e componenti base ===== */
+:root {
+    --ficr-primary: #0b3c7d; /* blu FICr */
+    --ficr-primary-dark: #082b59; /* blu più scuro */
+    --ficr-accent: #2fa7e0; /* azzurro accessorio */
+    --ficr-light: #f5f8fb; /* sfondo pagine */
+}
+
+/* Sfondo generale molto chiaro */
+.bg-ficr-light {
+    background-color: var(--ficr-light);
+}
+
+/* Hero in alto con gradiente blu */
+.ficr-hero {
+    background: linear-gradient(
+        90deg,
+        var(--ficr-primary-dark),
+        var(--ficr-primary)
+    );
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Bottoni e link in tinta FICr (utility leggere, usali quando vuoi) */
+.btn-ficr {
+    background: var(--ficr-primary);
+    color: #fff;
+    border: 1px solid var(--ficr-primary);
+}
+.btn-ficr:hover {
+    background: #0a3269;
+    border-color: #0a3269;
+    color: #fff;
+}
+
+.btn-ficr-outline {
+    background: transparent;
+    color: var(--ficr-primary);
+    border: 1px solid var(--ficr-primary);
+}
+.btn-ficr-outline:hover {
+    background: var(--ficr-primary);
+    color: #fff;
+}
+
+/* Titoli sezione con stanghetta azzurra (utility) */
+.section-title {
+    color: var(--ficr-primary-dark);
+    border-left: 4px solid var(--ficr-accent);
+    padding-left: 0.6rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+/* Tabelle più "pulite" (header chiaro, leggero uppercase) */
+.table thead th {
+    background: #eef3f8;
+    color: var(--ficr-primary);
+    border-bottom: 2px solid #dfe7f0;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
+}
+.table tbody tr:hover {
+    background: #fbfdff;
+}
+
+/* Card con ombra leggera (se usi .card in giro) */
+.card {
+    border: 0;
+    border-radius: 1rem;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+/* Input focus blu */
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 0.2rem rgba(11, 60, 125, 0.15);
+    border-color: var(--ficr-primary);
+}
+
+.ficr-navbar {
+    background: var(--ficr-primary-dark);
+}
+
+/* Link attivo/hover più leggibile su fondo scuro */
+.ficr-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+}
+.ficr-navbar .nav-link:hover,
+.ficr-navbar .nav-link:focus {
+    color: #fff;
+}
+.ficr-navbar .nav-link.active {
+    color: #fff;
+    position: relative;
+}
+.ficr-navbar .nav-link.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 2px;
+    background: var(--ficr-accent);
+}
+
+/* Brand un filo più marcato */
+.ficr-navbar .navbar-brand {
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+.ficr-navbar .navbar-brand:hover {
+    color: #fff;
+}
+
+/* Dropdown più “pulito” */
+.dropdown-menu {
+    border: 0;
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+}
+.dropdown-item {
+    border-radius: 0.5rem;
+}
+.dropdown-item:hover {
+    background: #eef3f8;
+}
+
+.ficr-footer {
+    background: var(--ficr-primary-dark);
+}
+
+/* Barra social */
+.ficr-footer__social .ficr-social {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+.ficr-footer__social .ficr-social:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #fff;
+}
+
+/* Link footer */
+.ficr-footer__link {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+}
+.ficr-footer__link:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+/* Riga copyright */
+.ficr-footer__copy {
+    background: #072749;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ==== Homepage tiles ==== */
+.cta-card {
+    background: #fff;
+    border: 1px solid #eef3f8;
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+    transition: transform 0.18s ease, box-shadow 0.18s ease,
+        border-color 0.18s ease;
+}
+.cta-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.08);
+    border-color: #dfe7f0;
+}
+.cta-card__icon {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: linear-gradient(
+        135deg,
+        var(--ficr-primary),
+        var(--ficr-accent)
+    );
+    color: #fff;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 8px 16px rgba(11, 60, 125, 0.2);
+}
+
+/* Spazio sotto la hero per respiro */
+.ficr-hero + main .card {
+    margin-top: 0.25rem;
+}
+
+/* ===== Auth (Login) ===== */
+.auth-header {
+    background: linear-gradient(
+        90deg,
+        var(--ficr-primary-dark),
+        var(--ficr-primary)
+    );
+}
+.auth-card .card-body {
+    background: #fff;
+}
+
+/* Input con icone */
+.input-icon .input-group-text {
+    background: #f3f6fb;
+    border-color: #e5edf6;
+    color: var(--ficr-primary);
+}
+.input-icon .form-control {
+    border-left: 0;
+}
+.input-icon .form-control:focus {
+    box-shadow: none;
+    border-color: var(--ficr-primary);
+}
+.input-icon .btn {
+    border-color: #e5edf6;
+}
+
+/* Link secondari */
+.link-muted {
+    color: rgba(0, 0, 0, 0.6);
+    text-decoration: none;
+}
+.link-muted:hover {
+    color: var(--ficr-primary);
+    text-decoration: underline;
+}
+
+/* Titoletti di sezione nel form */
+.form-section {
+    letter-spacing: 0.04em;
+}
+
+/* Header pagina (gradiente) */
+.page-header {
+    background: linear-gradient(135deg, #003a8c 0%, #0057b8 100%);
+    border: 0;
+}
+
+/* Card generica FICR */
+.ficr-card {
+    border-radius: 1rem;
+}
+
+/* Bottone primario brand */
+.btn-ficr {
+    background: #0057b8;
+    border-color: #0057b8;
+    color: #fff;
+}
+.btn-ficr:hover {
+    background: #00479a;
+    border-color: #00479a;
+    color: #fff;
+}
+
+/* Accordion stile FICR */
+.ficr-accordion .accordion-button {
+    padding: 0.9rem 1.25rem;
+    font-weight: 600;
+    background: #0d6efd; /* fallback */
+    background: linear-gradient(135deg, #0057b8 0%, #0d6efd 100%);
+    color: #fff;
+}
+.ficr-accordion .accordion-button:not(.collapsed) {
+    color: #fff;
+    background: linear-gradient(135deg, #003a8c 0%, #0057b8 100%);
+    box-shadow: none;
+}
+.ficr-accordion .accordion-button::after {
+    filter: invert(1);
+}
+
+/* Chip giorno */
+.ficr-day {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    transition: all 0.15s ease;
+}
+.ficr-day:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+.ficr-day .form-check-input {
+    margin-top: 0;
+    width: 1.05rem;
+    height: 1.05rem;
+}
+.ficr-day-week {
+    opacity: 0.7;
+    letter-spacing: 0.04em;
+}
+.ficr-day-num {
+    font-size: 1.05rem;
+}
+
+/* Background tenue per corpo accordion */
+.bg-light-subtle {
+    background: #f8f9fb;
+}
+
+/* Alert */
+.alert-success {
+    border: 0;
+    border-left: 4px solid #2fb344;
+}
+
+/* Badge “vellutati” */
+.badge.text-bg-primary.bg-opacity-10 {
+    background-color: rgba(13, 110, 253, 0.08) !important;
+}
+.badge.text-bg-secondary.bg-opacity-10 {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+/* Card morbida */
+.card.rounded-4 {
+    border-radius: 1rem;
+}
+
+/* Bordi neri per tabelle Bootstrap */
+.table-border-black {
+    --bs-border-color: #000;
+    --bs-table-border-color: #000;
+}
+
+/* Forza il colore sui bordi delle celle */
+.table-border-black > :not(caption) > * > * {
+    border-color: #000 !important;
+}
+
+/* card “cliccabile” più reattiva */
+.tk-card {
+    border: 1px solid #e9ecef;
+    transition: transform 0.12s ease, box-shadow 0.12s ease,
+        border-color 0.12s ease;
+}
+.tk-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+    border-color: #dee2e6;
+}
+
+/* migliora la percezione che tutta la card sia cliccabile */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* badge soft (fallback per Bootstrap < 5.3) */
+.bg-secondary-subtle {
+    background-color: #f1f3f5;
+}
+.text-secondary-emphasis {
+    color: #495057;
+}
+
+/* Badge morbidi per le specializzazioni visualizzate */
+.badge-soft {
+    background-color: #f1f3f5;
+    color: #495057;
+}
+
+/* Box disponibilità con altezza massima e scroll verticale */
+.avail-box {
+    max-height: 180px;
+    overflow: auto;
+    padding-right: 0.25rem;
+}
+
+/* Piccolo lift al passaggio (se vorrai riusarlo) */
+.hover-lift {
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+}
+
+/* Bordi neri tra le colonne della tabella */
+.tk-table-separated th,
+.tk-table-separated td {
+    border-color: #000 !important;
+}
+
+/* Opzionale: compatta leggermente la tabella */
+.tk-table-separated {
+    --bs-table-bg: #fff;
+}
+
+/* Piccoli KPI nella dashboard segreteria */
+.tk-kpi {
+    background: #f8fafc;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.5rem;
+}
+.tk-kpi-num {
+    font-weight: 700;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #0d6efd;
+    margin-bottom: 0.25rem;
+}
+

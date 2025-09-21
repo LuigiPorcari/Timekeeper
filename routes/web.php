@@ -77,6 +77,7 @@ Route::post('/admin/availability/store', [AdminController::class, 'storeAvailabi
 Route::get('/races/{race}/records', [TimekeeperController::class, 'manage'])->name('records.manage');
 Route::post('/races/{race}/records', [TimekeeperController::class, 'store'])->name('records.store');
 Route::put('/records/{record}', [TimekeeperController::class, 'update'])->name('records.update');
+Route::get('/records/{record}/edit', [TimekeeperController::class, 'edit'])->name('records.edit');
 Route::delete('/records/{record}', [TimekeeperController::class, 'destroy'])->name('records.destroy');
 Route::get('/timekeeper/dashboard', [TimekeeperController::class, 'dashboard'])->name('timekeeper.dashboard');
 Route::get('/timekeeper/availability', [TimekeeperController::class, 'showForUser'])->name('availability.show');
@@ -90,3 +91,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/password/change', [PasswordController::class, 'changePassword']);
     Route::delete('/account/delete', [LoginController::class, 'destroy'])->name('user.destroy');
 });
+
+Route::middleware(['auth'])
+    ->prefix('secretariat')
+    ->name('secretariat.')
+    ->group(function () {
+        Route::get('/', [SecretariatController::class, 'dashboard'])->name('dashboard');
+        Route::get('/races', [SecretariatController::class, 'racesIndex'])->name('races.index');
+        Route::get('/races/{race}', [SecretariatController::class, 'racesShow'])->name('races.show');
+        Route::get('/timekeepers', [SecretariatController::class, 'timekeepersIndex'])->name('timekeepers.index');
+        Route::get('/timekeepers/{user}', [SecretariatController::class, 'timekeepersShow'])->name('timekeepers.show'); // 👈 nuovo
+    });
+

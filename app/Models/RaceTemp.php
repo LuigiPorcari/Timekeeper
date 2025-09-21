@@ -12,6 +12,12 @@ class RaceTemp extends Model
         'place',
         'date_of_race',
         'specialization_of_race',
+        'ente_fatturazione',
+        'date_start',
+        'date_end',
+        'programma_allegato',
+        'note',
+        'type',
     ];
 
     protected function casts(): array
@@ -19,6 +25,8 @@ class RaceTemp extends Model
         return [
             'specialization_of_race' => 'array',
             'date_of_race' => 'date',
+            'date_start' => 'date',
+            'date_end' => 'date',
         ];
     }
 }

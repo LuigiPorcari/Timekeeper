@@ -8,7 +8,7 @@ class Race extends Model
 {
     public function users()
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsToMany(User::class)->withPivot('is_leader')->withTimestamps();
     }
     public function records()
     {
@@ -24,12 +24,20 @@ class Race extends Model
         'place',
         'date_of_race',
         'specialization_of_race',
+        'ente_fatturazione',
+        'date_start',
+        'date_end',
+        'programma_allegato',
+        'note',
+        'type',
     ];
     protected function casts(): array
     {
         return [
             'specialization_of_race' => 'array',
             'date_of_race' => 'date',
+            'date_start' => 'date',
+            'date_end' => 'date',
         ];
     }
 

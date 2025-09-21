@@ -23,6 +23,9 @@ class Record extends Model
         'description',
         'user_id',
         'race_id',
+        'confirmed',
+        'type',
+        'euroKM',
     ];
 
 
@@ -39,5 +42,12 @@ class Record extends Model
     public function attachments()
     {
         return $this->hasMany(RecordAttachment::class);
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'euroKM' => 'decimal:2', // 2 decimali fissi
+        ];
     }
 }

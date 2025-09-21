@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Record;
 use App\Models\Availability;
 use Illuminate\Http\Request;
+use App\Services\BrevoMailer;
 use Illuminate\Support\Facades\Auth;
 
 class TimekeeperController extends Controller
@@ -32,6 +33,23 @@ class TimekeeperController extends Controller
 
         auth()->user()->availabilities()->sync($validated['dates'] ?? []);
 
+        $adminEmails = User::where('is_admin', 1)
+            ->whereNotNull('email')
+            ->select('email')
+            ->distinct()
+            ->pluck('email')
+            ->all();
+
+        foreach ($adminEmails as $email) {
+            $brevo = new BrevoMailer();
+            $brevo->sendEmail(
+                $email,
+                'Inserimento nuova disponibilità',
+                'emails.admin.newAvailabilities',
+                ['timekeeperName' => auth()->user()->name]
+            );
+        }
+
         return redirect()->back()->with('success', 'Disponibilità aggiornata!');
     }
     public function racesListShow()
@@ -54,11 +72,16 @@ class TimekeeperController extends Controller
     }
     public function store(Request $request, Race $race)
     {
+        // Se ci sono record confermati, blocca l'inserimento
         if ($race->records()->where('confirmed', true)->exists()) {
             return back()->with('error', 'Non è possibile aggiungere nuovi record: sono già stati confermati.');
         }
 
+        // Validazione (aggiunti: type, euroKM)
         $validated = $request->validate([
+            'type' => 'required|string|in:FC,CM,CP',
+            'euroKM' => ['nullable', 'regex:/^\d{1,6}([,.]\d{1,2})?$/'],
+
             'daily_service' => 'nullable|integer',
             'special_service' => 'nullable|integer',
             'rate_documented' => 'nullable|string',
@@ -73,18 +96,34 @@ class TimekeeperController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $amountDocumented = round(($request->km_documented ?? 0) * 0.36, 2);
+        // Normalizza euroKM (virgola -> punto) e prepara valori numerici
+        $euroKM = $request->filled('euroKM')
+            ? (float) str_replace(',', '.', $request->input('euroKM'))
+            : null;
 
+        $km = (float) ($request->km_documented ?? 0);
+
+        // Usa euroKM se presente, altrimenti fallback 0.36 €/km
+        $ratePerKm = $euroKM !== null ? $euroKM : 0.36;
+
+        // Calcolo importo documentato chilometrico
+        $amountDocumented = round($km * $ratePerKm, 2);
+
+        // Calcolo totale
         $total = $amountDocumented
-            + ($request->travel_ticket_documented ?? 0)
-            + ($request->food_documented ?? 0)
-            + ($request->accommodation_documented ?? 0)
-            + ($request->various_documented ?? 0)
-            + ($request->food_not_documented ?? 0)
-            + ($request->daily_allowances_not_documented ?? 0)
-            + ($request->special_daily_allowances_not_documented ?? 0);
+            + (float) ($request->travel_ticket_documented ?? 0)
+            + (float) ($request->food_documented ?? 0)
+            + (float) ($request->accommodation_documented ?? 0)
+            + (float) ($request->various_documented ?? 0)
+            + (float) ($request->food_not_documented ?? 0)
+            + (float) ($request->daily_allowances_not_documented ?? 0)
+            + (float) ($request->special_daily_allowances_not_documented ?? 0);
 
+        // Creazione record (aggiunti: type, euroKM)
         $record = Record::create([
+            'type' => $validated['type'],
+            'euroKM' => $euroKM, // verrà salvato con il punto (es. 0.35)
+
             'daily_service' => $request->daily_service,
             'special_service' => $request->special_service,
             'rate_documented' => $request->rate_documented,
@@ -99,10 +138,12 @@ class TimekeeperController extends Controller
             'special_daily_allowances_not_documented' => $request->special_daily_allowances_not_documented,
             'total' => round($total, 2),
             'description' => $request->description,
+
             'user_id' => auth()->id(),
             'race_id' => $race->id,
         ]);
 
+        // Allegati multipli (se presenti)
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
                 $path = $file->store('attachments', 'public');
@@ -114,10 +155,22 @@ class TimekeeperController extends Controller
             }
         }
 
-        return redirect()->route('records.manage', $race)->with('success', 'Record aggiunto con successo.');
+        return redirect()->route('records.manage', $race)
+            ->with('success', 'Record aggiunto con successo.');
     }
 
+    public function edit(Record $record)
+    {
+        $user = auth()->user();
 
+        if ($user->id !== $record->user_id || $record->confirmed) {
+            return redirect()
+                ->route('records.manage', $record->race)
+                ->with('error', 'Non hai i permessi per modificare questo record.');
+        }
+
+        return view('timekeeper.records.edit', compact('record'));
+    }
 
     public function update(Request $request, Record $record)
     {
@@ -129,7 +182,11 @@ class TimekeeperController extends Controller
             return back()->with('error', 'Non hai i permessi per modificare questo record.');
         }
 
+        // Validazione (aggiunti: type, euroKM)
         $validated = $request->validate([
+            'type' => 'required|string|in:FC,CM,CP',
+            'euroKM' => ['nullable', 'regex:/^\d{1,6}([,.]\d{1,2})?$/'],
+
             'daily_service' => 'nullable|integer',
             'special_service' => 'nullable|integer',
             'rate_documented' => 'nullable|string',
@@ -141,21 +198,37 @@ class TimekeeperController extends Controller
             'food_not_documented' => 'nullable|numeric',
             'daily_allowances_not_documented' => 'nullable|numeric',
             'special_daily_allowances_not_documented' => 'nullable|numeric',
-            'description' => 'required|string',
+            'description' => 'nullable|string',
         ]);
 
-        $amountDocumented = round(($request->km_documented ?? 0) * 0.36, 2);
+        // Normalizza euroKM (virgola -> punto)
+        $euroKM = $request->filled('euroKM')
+            ? (float) str_replace(',', '.', $request->input('euroKM'))
+            : null;
 
+        $km = (float) ($request->km_documented ?? 0);
+
+        // Usa euroKM se presente, altrimenti default 0.36 €/km
+        $ratePerKm = $euroKM !== null ? $euroKM : 0.36;
+
+        // Calcolo importo documentato chilometrico
+        $amountDocumented = round($km * $ratePerKm, 2);
+
+        // Calcolo totale
         $total = $amountDocumented
-            + ($request->travel_ticket_documented ?? 0)
-            + ($request->food_documented ?? 0)
-            + ($request->accommodation_documented ?? 0)
-            + ($request->various_documented ?? 0)
-            + ($request->food_not_documented ?? 0)
-            + ($request->daily_allowances_not_documented ?? 0)
-            + ($request->special_daily_allowances_not_documented ?? 0);
+            + (float) ($request->travel_ticket_documented ?? 0)
+            + (float) ($request->food_documented ?? 0)
+            + (float) ($request->accommodation_documented ?? 0)
+            + (float) ($request->various_documented ?? 0)
+            + (float) ($request->food_not_documented ?? 0)
+            + (float) ($request->daily_allowances_not_documented ?? 0)
+            + (float) ($request->special_daily_allowances_not_documented ?? 0);
 
+        // Aggiorna record (aggiunti: type, euroKM)
         $record->update([
+            'type' => $validated['type'],
+            'euroKM' => $euroKM,
+
             'daily_service' => $request->daily_service,
             'special_service' => $request->special_service,
             'rate_documented' => $request->rate_documented,
@@ -172,9 +245,8 @@ class TimekeeperController extends Controller
             'description' => $request->description,
         ]);
 
-        return back()->with('success', 'Record aggiornato con successo.');
+        return redirect()->route('records.manage', $record->race)->with('success', 'Record aggiornato con successo.');
     }
-
 
     public function destroy(Record $record)
     {
@@ -194,13 +266,19 @@ class TimekeeperController extends Controller
         $user = auth()->user();
 
         if (!$user->isLeaderOf($record->race)) {
-            return back()->with('error', 'Non hai i permessi per confermare questo record.');
+            return redirect()
+                ->route('records.manage', $record->race)
+                ->with('error', 'Non hai i permessi per confermare questo record.');
         }
 
         $record->update(['confirmed' => true]);
 
-        return back()->with('success', 'Record confermato con successo.');
+        // Redirect esplicito alla pagina di gestione della gara
+        return redirect()
+            ->route('records.manage', $record->race)
+            ->with('success', 'Record confermato con successo.');
     }
+
     public function confirmAll(Race $race)
     {
         $user = auth()->user();

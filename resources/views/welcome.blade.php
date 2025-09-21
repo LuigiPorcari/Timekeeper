@@ -1,21 +1,52 @@
 <x-layout documentTitle="Homepage">
-    <main class="container mt-5 pt-5" role="main">
-        <h1 class="mb-4">Benvenuto</h1>
+    <main class="container mt-5 pt-5" role="main" aria-labelledby="homepage-title">
+        <h1 id="homepage-title" class="visually-hidden">Benvenuto</h1>
 
         @guest
-            <section class="row justify-content-center g-4" aria-label="Scelte disponibili per utenti non autenticati">
-                <div class="col-12 col-md-4 d-grid">
-                    <a class="btn btn-primary" href="{{ route('login') }}" aria-label="Accedi al tuo account">Accedi</a>
-                </div>
-                <div class="col-12 col-md-4 d-grid">
-                    <a class="btn btn-primary" href="{{ route('timekeeper.register.form') }}"
-                        aria-label="Registrati come cronometrista">Registrati</a>
+            {{-- Intro hero-card --}}
+            <section class="row justify-content-center mb-4">
+                <div class="col-12 col-lg-10">
+                    <div class="card p-4 p-md-5 bg-white border-0 shadow-sm rounded-4">
+                        <div class="row align-items-center g-4">
+                            <div class="col-md">
+                                <h2 class="h3 mb-2 text-dark">Benvenuto nel portale dei Cronometristi</h2>
+                                <p class="mb-0 text-secondary">
+                                    Gestisci gare, disponibilità e report in un’unica piattaforma semplice e veloce.
+                                </p>
+                            </div>
+                            <div class="col-md-auto">
+                                <a class="btn btn-ficr btn-lg px-4" href="{{ route('login') }}"
+                                    aria-label="Accedi al tuo account">
+                                    <i class="fa-solid fa-right-to-bracket me-2"></i> Accedi
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
-            <section class="row justify-content-center g-4 mt-3" aria-label="Scelte disponibili per utenti non autenticati">
-                <div class="col-12 col-md-4 d-grid">
-                    <a class="btn btn-primary" href="{{ route('guest.createRaceTemp.form') }}"
-                        aria-label="Registrati come cronometrista">Inserisci richiesta gara</a>
+
+            {{-- CTA tiles --}}
+            <section class="row justify-content-center g-4" aria-label="Azioni disponibili">
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="cta-card text-decoration-none d-block h-100" href="{{ route('timekeeper.register.form') }}"
+                        aria-label="Registrati come cronometrista">
+                        <div class="cta-card__icon">
+                            <i class="fa-solid fa-stopwatch"></i>
+                        </div>
+                        <h3 class="h5 m-0 text-dark">Registrati Cronometrista</h3>
+                        <p class="text-secondary mb-0">Crea il tuo profilo e indica le tue disponibilità.</p>
+                    </a>
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="cta-card text-decoration-none d-block h-100" href="{{ route('guest.createRaceTemp.form') }}"
+                        aria-label="Inserisci richiesta gara">
+                        <div class="cta-card__icon">
+                            <i class="fa-solid fa-flag-checkered"></i>
+                        </div>
+                        <h3 class="h5 m-0 text-dark">Inserisci richiesta gara</h3>
+                        <p class="text-secondary mb-0">Invia una gara da confermare senza registrazione.</p>
+                    </a>
                 </div>
             </section>
         @endguest
