@@ -31,27 +31,29 @@
 
             {{-- Destra: registrazioni / profilo --}}
             <ul class="navbar-nav align-items-lg-center ms-auto gap-lg-2">
+                @auth
+                    @if (Auth::user()->is_admin)
+                        {{-- Versione mobile: link semplici --}}
+                        <li class="nav-item d-lg-none">
+                            <a class="nav-link" href="{{ route('secretariat.register.form') }}">Registrati Segreteria</a>
+                        </li>
+                        <li class="nav-item d-lg-none">
+                            <a class="nav-link" href="{{ route('admin.register.form') }}">Registrati Admin</a>
+                        </li>
 
-                {{-- Versione mobile: link semplici --}}
-                <li class="nav-item d-lg-none">
-                    <a class="nav-link" href="{{ route('secretariat.register.form') }}">Registrati Segreteria</a>
-                </li>
-                <li class="nav-item d-lg-none">
-                    <a class="nav-link" href="{{ route('admin.register.form') }}">Registrati Admin</a>
-                </li>
-
-                {{-- Versione desktop: bottoni outline chiari --}}
-                <li class="nav-item d-none d-lg-block">
-                    <a class="btn btn-sm btn-outline-light" href="{{ route('secretariat.register.form') }}">
-                        Registrati Segreteria
-                    </a>
-                </li>
-                <li class="nav-item d-none d-lg-block">
-                    <a class="btn btn-sm btn-outline-light" href="{{ route('admin.register.form') }}">
-                        Registrati Admin
-                    </a>
-                </li>
-
+                        {{-- Versione desktop: bottoni outline chiari --}}
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="btn btn-sm btn-outline-light" href="{{ route('secretariat.register.form') }}">
+                                Registrati Segreteria
+                            </a>
+                        </li>
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="btn btn-sm btn-outline-light" href="{{ route('admin.register.form') }}">
+                                Registrati Admin
+                            </a>
+                        </li>
+                    @endif
+                @endauth
                 @guest
                     <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
                         <a class="btn btn-sm btn-light" href="{{ route('login') }}">Accedi</a>
