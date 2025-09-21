@@ -60,12 +60,13 @@
 
 <body>
     <div class="container" role="main">
-        <h1>Convocazione Gara</h1>
+        <h1>Inserimento nuova Gara</h1>
         <p>La gara <strong>{{ $raceName }}</strong> è stata aggiunta e si terrà
             @if ($raceStart != $raceEnd)
-                dal {{ $raceStart }} al {{ $raceEnd }}
+                dal {{ \Carbon\Carbon::parse($raceStart)->translatedFormat('l j F') }}
+                al {{ \Carbon\Carbon::parse($raceEnd)->translatedFormat('l j F') }}
             @else
-                il {{ $raceStart }}
+                il {{ \Carbon\Carbon::parse($raceStart)->translatedFormat('l j F') }}
             @endif
         </p>
         <p>Cordiali saluti</p>

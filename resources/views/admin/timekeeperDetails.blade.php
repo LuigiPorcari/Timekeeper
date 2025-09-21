@@ -13,12 +13,16 @@
             {{-- Colonna profilo --}}
             <div class="col-md-4">
                 <section aria-labelledby="dati-personali">
-                    <div class="card shadow-sm rounded-3">
-                        <div class="card-header bg-white">
-                            <h2 id="dati-personali" class="h5 mb-0">
-                                {{ $timekeeper->name }} {{ $timekeeper->surname }}
-                            </h2>
-                            <small class="text-muted">Cronometrista</small>
+                    <div class="card shadow-sm rounded-3 overflow-hidden">
+                        {{-- HEADER BLU --}}
+                        <div class="card-header page-header d-flex align-items-center">
+                            <i class="fa-solid fa-user-clock me-2"></i>
+                            <div>
+                                <h2 id="dati-personali" class="h5 mb-0 text-white">
+                                    {{ $timekeeper->name }} {{ $timekeeper->surname }}
+                                </h2>
+                                <small class="text-white-50">Cronometrista</small>
+                            </div>
                         </div>
 
                         <div class="card-body">
@@ -28,7 +32,8 @@
 
                                 <dt class="col-5 text-muted small">Data di nascita</dt>
                                 <dd class="col-7">
-                                    {{ \Carbon\Carbon::parse($timekeeper->date_of_birth)->format('d-m-Y') }}</dd>
+                                    {{ \Carbon\Carbon::parse($timekeeper->date_of_birth)->format('d-m-Y') }}
+                                </dd>
 
                                 @if ($timekeeper->residence)
                                     <dt class="col-5 text-muted small">Residenza</dt>
@@ -97,10 +102,14 @@
             {{-- Colonna form specializzazioni --}}
             <div class="col-md-8">
                 <section aria-labelledby="modifica-specializzazione">
-                    <div class="card shadow-sm rounded-3">
-                        <div class="card-header bg-white">
-                            <h2 id="modifica-specializzazione" class="h5 mb-1">Seleziona disciplina</h2>
-                            <small class="text-muted">Spunta tutte le specializzazioni pertinenti.</small>
+                    <div class="card shadow-sm rounded-3 overflow-hidden">
+                        {{-- HEADER BLU --}}
+                        <div class="card-header page-header d-flex align-items-center">
+                            <i class="fa-solid fa-layer-group me-2"></i>
+                            <div>
+                                <h2 id="modifica-specializzazione" class="h5 mb-1 text-white">Seleziona disciplina</h2>
+                                <small class="text-white-50">Spunta tutte le specializzazioni pertinenti.</small>
+                            </div>
                         </div>
 
                         <div class="card-body">
@@ -134,7 +143,7 @@
                                                 'assistenza_partenza_arrivo',
                                                 'palco_premiazioni',
                                             ],
-                                            'ENDURO MOTO' => [
+                                            'ENDURO OTO' => [
                                                 'transponder_pc',
                                                 'solo_cronometraggio_start',
                                                 'solo_cronometraggio_fine',

@@ -63,9 +63,10 @@
         <h1>Convocazione Gara DSC</h1>
         <p>Sei stato convocato come DSC per la gara <strong>{{ $raceName }}</strong> che si terrà
             @if ($raceStart != $raceEnd)
-                dal {{ $raceStart }} al {{ $raceEnd }}
+                dal {{ \Carbon\Carbon::parse($raceStart)->translatedFormat('l j F') }}
+                al {{ \Carbon\Carbon::parse($raceEnd)->translatedFormat('l j F') }}
             @else
-                il {{ $raceStart }}
+                il {{ \Carbon\Carbon::parse($raceStart)->translatedFormat('l j F') }}
             @endif
         </p>
         <p>Cordiali saluti</p>
