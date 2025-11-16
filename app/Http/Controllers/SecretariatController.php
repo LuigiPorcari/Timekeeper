@@ -53,9 +53,7 @@ class SecretariatController extends Controller
             + (float) ($request->food_documented ?? 0)
             + (float) ($request->accommodation_documented ?? 0)
             + (float) ($request->various_documented ?? 0)
-            + (float) ($request->food_not_documented ?? 0)
-            + (float) ($request->daily_allowances_not_documented ?? 0)
-            + (float) ($request->special_daily_allowances_not_documented ?? 0);
+            + (float) ($request->food_not_documented ?? 0);
 
         $record->update([
             'type' => $validated['type'],
@@ -161,9 +159,7 @@ class SecretariatController extends Controller
                 + ($r->food_documented ?? 0)
                 + ($r->accommodation_documented ?? 0)
                 + ($r->various_documented ?? 0)
-                + ($r->food_not_documented ?? 0)
-                + ($r->daily_allowances_not_documented ?? 0)
-                + ($r->special_daily_allowances_not_documented ?? 0);
+                + ($r->food_not_documented ?? 0);
 
             return [
                 'record' => $r,
@@ -207,9 +203,7 @@ class SecretariatController extends Controller
                     + ($r->food_documented ?? 0)
                     + ($r->accommodation_documented ?? 0)
                     + ($r->various_documented ?? 0)
-                    + ($r->food_not_documented ?? 0)
-                    + ($r->daily_allowances_not_documented ?? 0)
-                    + ($r->special_daily_allowances_not_documented ?? 0);
+                    + ($r->food_not_documented ?? 0);
 
                 $totKm += $kmAmount;
                 $tot += $rowTotal;

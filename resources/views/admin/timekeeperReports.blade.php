@@ -29,10 +29,12 @@
                     @else
                         <div class="card-body p-0">
                             <div class="table-responsive" style="overflow-x: visible;">
-                                <table class="table table-bordered table-striped table-hover align-middle table-dark-borders mb-0">
+                                <table
+                                    class="table table-bordered table-striped table-hover align-middle table-dark-borders mb-0">
                                     <thead class="table-light">
                                         <tr>
                                             <th rowspan="2">Tipo</th>
+                                            <th rowspan="2">Trasporto</th>
                                             <th rowspan="2">€/Km</th>
                                             <th rowspan="2">Servizio Giornaliero</th>
                                             <th rowspan="2">Servizio Speciale</th>
@@ -59,20 +61,39 @@
                                                 $ratePerKm = $record->euroKM !== null ? (float) $record->euroKM : 0.36;
                                                 $km = (float) ($record->km_documented ?? 0);
                                                 $amount = $km > 0 ? round($km * $ratePerKm, 2) : 0.0;
+
+                                                // Totale riga SENZA diaria e diaria speciale
                                                 $rowTotal =
                                                     $amount +
                                                     (float) ($record->travel_ticket_documented ?? 0) +
                                                     (float) ($record->food_documented ?? 0) +
                                                     (float) ($record->accommodation_documented ?? 0) +
                                                     (float) ($record->various_documented ?? 0) +
-                                                    (float) ($record->food_not_documented ?? 0) +
-                                                    (float) ($record->daily_allowances_not_documented ?? 0) +
-                                                    (float) ($record->special_daily_allowances_not_documented ?? 0);
+                                                    (float) ($record->food_not_documented ?? 0);
+
+                                                // Apparecchiature / specializzazioni
+                                                $appsRaw = is_array($record->apparecchiature ?? null)
+                                                    ? $record->apparecchiature
+                                                    : [];
+                                                $prettySpec = function ($val) {
+                                                    if (!is_string($val)) {
+                                                        return '';
+                                                    }
+                                                    if (str_contains($val, '__')) {
+                                                        [, $val] = explode('__', $val, 2);
+                                                    }
+                                                    $val = str_replace(['_', '-'], ' ', $val);
+                                                    return ucwords($val);
+                                                };
+                                                $apps = array_filter(array_map($prettySpec, $appsRaw));
+                                                $appsLabel = $apps ? implode(', ', $apps) : '—';
                                             @endphp
 
                                             {{-- Riga principale dati --}}
                                             <tr>
                                                 <td>{{ $record->type ?? '—' }}</td>
+                                                <td>{{ $record->transport_mode === 'trasportato' ? 'Trasportato' : 'Km' }}
+                                                </td>
                                                 <td>{{ number_format($ratePerKm, 2, ',', '.') }}</td>
                                                 <td>{{ $record->daily_service }}</td>
                                                 <td>{{ $record->special_service }}</td>
@@ -89,13 +110,18 @@
                                                 <td><strong>{{ number_format($rowTotal, 2, ',', '.') }}</strong></td>
                                             </tr>
 
-                                            {{-- Riga secondaria: Descrizione + Allegati --}}
+                                            {{-- Riga secondaria: Apparecchiature + Descrizione + Allegati --}}
                                             <tr class="bg-light">
-                                                <td colspan="15">
+                                                <td colspan="16">
                                                     <div class="py-2">
                                                         <div class="mb-1">
+                                                            <strong>Apparecchiature:</strong>
+                                                            <span class="text-break">{{ $appsLabel }}</span>
+                                                        </div>
+                                                        <div class="mb-1">
                                                             <strong>Descrizione:</strong>
-                                                            <span class="text-break">{{ $record->description ?: '—' }}</span>
+                                                            <span
+                                                                class="text-break">{{ $record->description ?: '—' }}</span>
                                                         </div>
                                                         <div>
                                                             <strong>Allegati:</strong>
@@ -103,7 +129,8 @@
                                                                 <ul class="list-unstyled d-inline mb-0">
                                                                     @foreach ($record->attachments as $attachment)
                                                                         <li class="d-inline me-2">
-                                                                            <a href="{{ route('attachments.show', $attachment) }}" target="_blank" rel="noopener">
+                                                                            <a href="{{ route('attachments.show', $attachment) }}"
+                                                                                target="_blank" rel="noopener">
                                                                                 {{ $attachment->original_name }}
                                                                             </a>
                                                                         </li>

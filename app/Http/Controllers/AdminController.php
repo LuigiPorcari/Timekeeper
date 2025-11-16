@@ -361,25 +361,25 @@ class AdminController extends Controller
 
         $leaderEmail = optional($race->users->firstWhere('pivot.is_leader', true))->email;
 
-        // foreach ($emailsSelected as $email) {
-        //     if ($email != $leaderEmail) {
-        //         $brevo = new BrevoMailer();
-        //         $brevo->sendEmail(
-        //             $email,
-        //             'Convocazione gara',
-        //             'emails.timekeeper.raceConvocation',
-        //             ['raceName' => $race->name, 'raceStart' => $race->date_of_race, 'raceEnd' => $race->date_end ?? $race->date_of_race]
-        //         );
-        //     } else {
-        //         $brevo = new BrevoMailer();
-        //         $brevo->sendEmail(
-        //             $email,
-        //             'Convocazione gara DSC',
-        //             'emails.timekeeper.raceConvocationDsc',
-        //             ['raceName' => $race->name, 'raceStart' => $race->date_of_race, 'raceEnd' => $race->date_end ?? $race->date_of_race]
-        //         );
-        //     }
-        // }
+        foreach ($emailsSelected as $email) {
+            if ($email != $leaderEmail) {
+                $brevo = new BrevoMailer();
+                $brevo->sendEmail(
+                    $email,
+                    'Convocazione gara',
+                    'emails.timekeeper.raceConvocation',
+                    ['raceName' => $race->name, 'raceStart' => $race->date_of_race, 'raceEnd' => $race->date_end ?? $race->date_of_race]
+                );
+            } else {
+                $brevo = new BrevoMailer();
+                $brevo->sendEmail(
+                    $email,
+                    'Convocazione gara DSC',
+                    'emails.timekeeper.raceConvocationDsc',
+                    ['raceName' => $race->name, 'raceStart' => $race->date_of_race, 'raceEnd' => $race->date_end ?? $race->date_of_race]
+                );
+            }
+        }
         return redirect()->route('admin.racesList')->with('success', 'Cronometristi aggiornati con successo.');
     }
     public function timekeeperReport(User $user)
@@ -409,9 +409,7 @@ class AdminController extends Controller
                 + ($record->food_documented ?? 0)
                 + ($record->accommodation_documented ?? 0)
                 + ($record->various_documented ?? 0)
-                + ($record->food_not_documented ?? 0)
-                + ($record->daily_allowances_not_documented ?? 0)
-                + ($record->special_daily_allowances_not_documented ?? 0);
+                + ($record->food_not_documented ?? 0);
 
             $totalSum += $total;
         }

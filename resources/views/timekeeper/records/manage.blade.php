@@ -55,7 +55,8 @@
                                         <select id="type" name="type"
                                             class="form-select @error('type') is-invalid @enderror" required>
                                             <option value="" disabled {{ old('type') ? '' : 'selected' }}>
-                                                Seleziona…</option>
+                                                Seleziona…
+                                            </option>
                                             <option value="FC" {{ old('type') === 'FC' ? 'selected' : '' }}>FC —
                                                 Fuori città</option>
                                             <option value="CM" {{ old('type') === 'CM' ? 'selected' : '' }}>CM —
@@ -181,46 +182,43 @@
                                     </table>
                                 </div>
 
-                                {{-- Apparecchiature (solo DSC) --}}
                                 @php
-                                    $labels = [
-                                        'elaborazione_dati' => 'Elaborazione dati',
-                                        'elaborazione_dati_completa' => 'Elaborazione dati completa',
-                                        'elaborazione_dati_parziale_live' => 'Elab. dati parziale (live)',
-                                        'vasca' => 'Vasca',
-                                        'partenza' => 'Partenza',
-                                        'arrivo' => 'Arrivo',
-                                        'fotofinish' => 'Fotofinish',
-                                        'manuale' => 'Manuale',
-                                        'centro_classifica' => 'Centro classifica',
-                                        'tracking' => 'Tracking',
-                                        'start_ps' => 'Start PS',
-                                        'fine_ps' => 'Fine PS',
-                                        'controllo_orari_co' => 'Controllo orari (CO)',
-                                        'riordini' => 'Riordini',
-                                        'assistenza_partenza_arrivo' => 'Assistenza/Partenza/Arrivo',
-                                        'palco_premiazioni' => 'Palco premiazioni',
-                                        'transponder_pc' => 'Transponder – PC',
-                                        'solo_cronometraggio_start' => 'Solo cronometraggio: start',
-                                        'solo_cronometraggio_fine' => 'Solo cronometraggio: fine',
-                                        'co_con_pc' => 'CO con PC',
-                                        'co_solo_tablet' => 'CO solo tablet',
-                                        'partenza_prova' => 'Partenza prova',
-                                        'fine_prova' => 'Fine prova',
-                                        'arrivo_bandelle' => 'Arrivo – Bandelle',
-                                        'partenza_orologio_tablet' => 'Partenza con orologio/tablet',
-                                        'prog_spec_concorso_ippico' => 'Prog. spec. concorso ippico',
-                                        'utilizzo_spec_programma' => 'Utilizzo specifico programma',
-                                        'contagiri' => 'Contagiri',
-                                        'pressostati' => 'Pressostati',
-                                        'tablet' => 'Tablet',
-                                    ];
-                                    $nice = fn($slug) => $labels[$slug] ?? ucwords(str_replace(['_', '-'], ' ', $slug));
+                                    // Mappa slug namespacizzato "tipo__spec" → label umano della specializzazione
+                                    $typesMap = config('races.types', []);
+                                    $nsToLabel = [];
+
+                                    foreach ($typesMap as $typeLabel => $equipList) {
+                                        $typeSlug = \Illuminate\Support\Str::slug($typeLabel);
+                                        foreach ($equipList as $lab) {
+                                            if (!filled($lab)) {
+                                                continue;
+                                            }
+                                            $equipSlug = \Illuminate\Support\Str::slug($lab);
+                                            $ns = $typeSlug . '__' . $equipSlug;
+                                            $nsToLabel[$ns] = $lab;
+                                        }
+                                    }
+
+                                    // Helper per mostrare SOLO il nome della specializzazione (senza tipo)
+                                    $prettyApp = function ($ns) use ($nsToLabel) {
+                                        if (isset($nsToLabel[$ns])) {
+                                            return $nsToLabel[$ns];
+                                        }
+                                        // fallback: prendo la parte dopo "__" e tolgo slug
+                                        if (is_string($ns) && str_contains($ns, '__')) {
+                                            $parts = explode('__', $ns, 2);
+                                            $ns = $parts[1];
+                                        }
+                                        $ns = str_replace(['_', '-'], ' ', (string) $ns);
+                                        return ucwords($ns);
+                                    };
+
                                     $specs = is_array($race->specialization_of_race)
                                         ? $race->specialization_of_race
                                         : [];
                                 @endphp
 
+                                {{-- Apparecchiature (solo DSC) --}}
                                 @if (auth()->user()->isLeaderOf($race) && !empty($specs))
                                     <div class="mb-3">
                                         <label class="form-label">Apparecchiature usate in gara</label>
@@ -233,7 +231,9 @@
                                                             value="{{ $spec }}"
                                                             {{ in_array($spec, old('apparecchiature', []), true) ? 'checked' : '' }}>
                                                         <label class="form-check-label"
-                                                            for="app_{{ $spec }}">{{ $nice($spec) }}</label>
+                                                            for="app_{{ $spec }}">
+                                                            {{ $prettyApp($spec) }}
+                                                        </label>
                                                     </div>
                                                 </div>
                                             @endforeach
@@ -276,6 +276,8 @@
                                         <th rowspan="2">€/Km</th>
                                         <th rowspan="2">Km (eff.)</th>
                                         <th rowspan="2">Imp. Km</th>
+                                        <th rowspan="2">Servizio Giornaliero</th>
+                                        <th rowspan="2">Servizio Speciale</th>
                                         <th colspan="4" class="text-center">Spese Documentate</th>
                                         <th colspan="3" class="text-center">Spese NON Documentate</th>
                                         <th rowspan="2">Apparecchiature</th>
@@ -305,41 +307,8 @@
                                             $kmEff = (float) ($record->km_documented ?? 0);
                                             $amount = round($kmEff * $ratePerKm, 2);
 
-                                            $labels = [
-                                                'elaborazione_dati' => 'Elaborazione dati',
-                                                'elaborazione_dati_completa' => 'Elaborazione dati completa',
-                                                'elaborazione_dati_parziale_live' => 'Elab. dati parziale (live)',
-                                                'vasca' => 'Vasca',
-                                                'partenza' => 'Partenza',
-                                                'arrivo' => 'Arrivo',
-                                                'fotofinish' => 'Fotofinish',
-                                                'manuale' => 'Manuale',
-                                                'centro_classifica' => 'Centro classifica',
-                                                'tracking' => 'Tracking',
-                                                'start_ps' => 'Start PS',
-                                                'fine_ps' => 'Fine PS',
-                                                'controllo_orari_co' => 'Controllo orari (CO)',
-                                                'riordini' => 'Riordini',
-                                                'assistenza_partenza_arrivo' => 'Assistenza/Partenza/Arrivo',
-                                                'palco_premiazioni' => 'Palco premiazioni',
-                                                'transponder_pc' => 'Transponder – PC',
-                                                'solo_cronometraggio_start' => 'Solo cronometraggio: start',
-                                                'solo_cronometraggio_fine' => 'Solo cronometraggio: fine',
-                                                'co_con_pc' => 'CO con PC',
-                                                'co_solo_tablet' => 'CO solo tablet',
-                                                'partenza_prova' => 'Partenza prova',
-                                                'fine_prova' => 'Fine prova',
-                                                'arrivo_bandelle' => 'Arrivo – Bandelle',
-                                                'partenza_orologio_tablet' => 'Partenza con orologio/tablet',
-                                                'prog_spec_concorso_ippico' => 'Prog. spec. concorso ippico',
-                                                'utilizzo_spec_programma' => 'Utilizzo specifico programma',
-                                                'contagiri' => 'Contagiri',
-                                                'pressostati' => 'Pressostati',
-                                                'tablet' => 'Tablet',
-                                            ];
-                                            $nice = fn($slug) => $labels[$slug] ??
-                                                ucwords(str_replace(['_', '-'], ' ', $slug));
-                                            $apps = array_map($nice, $record->apparecchiature ?? []);
+                                            // usa lo stesso helper definito sopra ($prettyApp)
+                                            $apps = array_map($prettyApp, $record->apparecchiature ?? []);
                                             $appsLabel = $apps ? implode(', ', $apps) : '—';
                                         @endphp
 
@@ -352,6 +321,10 @@
                                                 <td>{{ number_format($ratePerKm, 2) }}</td>
                                                 <td>{{ $kmEff }}</td>
                                                 <td>{{ number_format($amount, 2) }}</td>
+
+                                                {{-- Servizi --}}
+                                                <td>{{ $record->daily_service }}</td>
+                                                <td>{{ $record->special_service }}</td>
 
                                                 {{-- Spese Documentate --}}
                                                 <td>{{ $record->travel_ticket_documented }}</td>
@@ -387,7 +360,7 @@
 
                                             {{-- Riga azioni --}}
                                             <tr class="bg-light">
-                                                <td colspan="18">
+                                                <td colspan="19">
                                                     <div class="d-flex flex-wrap justify-content-end gap-2">
                                                         @if (auth()->user()->isLeaderOf($race) && !$record->confirmed)
                                                             <form method="POST"

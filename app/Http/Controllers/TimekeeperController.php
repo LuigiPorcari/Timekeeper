@@ -209,9 +209,7 @@ class TimekeeperController extends Controller
             + (float) ($request->food_documented ?? 0)
             + (float) ($request->accommodation_documented ?? 0)
             + (float) ($request->various_documented ?? 0)
-            + (float) ($request->food_not_documented ?? 0)
-            + (float) ($request->daily_allowances_not_documented ?? 0)
-            + (float) ($request->special_daily_allowances_not_documented ?? 0);
+            + (float) ($request->food_not_documented ?? 0);
 
         $data = [
             'type' => $validated['type'],

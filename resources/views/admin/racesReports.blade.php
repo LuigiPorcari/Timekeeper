@@ -24,13 +24,14 @@
                                 <table
                                     class="table table-striped table-hover align-middle table-bordered table-border-black mt-3">
                                     <caption class="visually-hidden">
-                                        Dettaglio rendicontazioni per operatore, con tipologia, tariffa chilometrica e
-                                        spese.
+                                        Dettaglio rendicontazioni per operatore, con tipologia, trasporto, tariffa
+                                        chilometrica e spese.
                                     </caption>
                                     <thead class="table-light">
                                         <tr>
                                             <th rowspan="2">Operatore</th>
                                             <th rowspan="2">Tipo</th>
+                                            <th rowspan="2">Trasporto</th>
                                             <th rowspan="2">€/Km</th>
                                             <th rowspan="2">Servizio Giornaliero</th>
                                             <th rowspan="2">Servizio Speciale</th>
@@ -66,27 +67,44 @@
                                                 // €/Km: usa il valore del record, fallback 0.36
                                                 $ratePerKm = $record->euroKM !== null ? (float) $record->euroKM : 0.36;
 
-                                                // Importo km con euroKM effettivo
+                                                // Importo km
                                                 $amount = $kmDisplay
                                                     ? round(((float) $kmDisplay) * $ratePerKm, 2)
                                                     : 0.0;
 
-                                                // Totale di riga
+                                                // Totale di riga (⚠️ SENZA diaria e diaria speciale)
                                                 $rowTotal =
                                                     $amount +
                                                     (float) ($record->travel_ticket_documented ?? 0) +
                                                     (float) ($record->food_documented ?? 0) +
                                                     (float) ($record->accommodation_documented ?? 0) +
                                                     (float) ($record->various_documented ?? 0) +
-                                                    (float) ($record->food_not_documented ?? 0) +
-                                                    (float) ($record->daily_allowances_not_documented ?? 0) +
-                                                    (float) ($record->special_daily_allowances_not_documented ?? 0);
+                                                    (float) ($record->food_not_documented ?? 0);
+
+                                                // Apparecchiature (namespacizzate tipo__equip → mostro solo equip human)
+                                                $appsRaw = is_array($record->apparecchiature ?? null)
+                                                    ? $record->apparecchiature
+                                                    : [];
+                                                $prettySpec = function ($val) {
+                                                    if (!is_string($val)) {
+                                                        return '';
+                                                    }
+                                                    if (str_contains($val, '__')) {
+                                                        [, $val] = explode('__', $val, 2);
+                                                    }
+                                                    $val = str_replace(['_', '-'], ' ', $val);
+                                                    return ucwords($val);
+                                                };
+                                                $apps = array_filter(array_map($prettySpec, $appsRaw));
+                                                $appsLabel = $apps ? implode(', ', $apps) : '—';
                                             @endphp
 
                                             {{-- Riga principale dati --}}
                                             <tr>
                                                 <td>{{ $record->user->name }} {{ $record->user->surname }}</td>
                                                 <td>{{ $record->type ?? '—' }}</td>
+                                                <td>{{ $record->transport_mode === 'trasportato' ? 'Trasportato' : 'Km' }}
+                                                </td>
                                                 <td>{{ number_format($ratePerKm, 2, ',', '.') }}</td>
                                                 <td>{{ $record->daily_service }}</td>
                                                 <td>{{ $record->special_service }}</td>
@@ -103,10 +121,14 @@
                                                 <td><strong>{{ number_format($rowTotal, 2, ',', '.') }}</strong></td>
                                             </tr>
 
-                                            {{-- Riga secondaria: Descrizione + Allegati --}}
+                                            {{-- Riga secondaria: Apparecchiature + Descrizione + Allegati --}}
                                             <tr class="bg-light">
-                                                <td colspan="16">
+                                                <td colspan="17">
                                                     <div class="py-2">
+                                                        <div class="mb-1">
+                                                            <strong>Apparecchiature:</strong>
+                                                            <span class="text-break">{{ $appsLabel }}</span>
+                                                        </div>
                                                         <div class="mb-1">
                                                             <strong>Descrizione:</strong>
                                                             <span
@@ -137,7 +159,7 @@
 
                                         {{-- Totale complessivo --}}
                                         <tr class="table-secondary fw-bold">
-                                            <td colspan="15" class="text-end">Totale Generale</td>
+                                            <td colspan="16" class="text-end">Totale Generale</td>
                                             <td>{{ number_format($totalSum, 2, ',', '.') }}</td>
                                         </tr>
                                     </tbody>

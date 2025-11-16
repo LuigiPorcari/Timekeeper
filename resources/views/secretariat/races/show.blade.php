@@ -34,7 +34,35 @@
                     break;
                 }
             }
+
             $computedGrandTotal = 0.0;
+
+            // Mappa per mostrare solo il nome "umano" delle specializzazioni (senza tipo)
+            $typesMap = config('races.types', []);
+            $nsToLabel = [];
+
+            foreach ($typesMap as $typeLabel => $equipList) {
+                $typeSlug = \Illuminate\Support\Str::slug($typeLabel);
+                foreach ($equipList as $lab) {
+                    if (!filled($lab)) {
+                        continue;
+                    }
+                    $equipSlug = \Illuminate\Support\Str::slug($lab);
+                    $ns = $typeSlug . '__' . $equipSlug;
+                    $nsToLabel[$ns] = $lab;
+                }
+            }
+
+            $prettySpec = function ($ns) use ($nsToLabel) {
+                if (isset($nsToLabel[$ns])) {
+                    return $nsToLabel[$ns];
+                }
+                if (is_string($ns) && str_contains($ns, '__')) {
+                    [, $ns] = explode('__', $ns, 2);
+                }
+                $ns = str_replace(['_', '-'], ' ', (string) $ns);
+                return ucwords($ns);
+            };
         @endphp
 
         <div class="card shadow-sm p-3">
@@ -58,7 +86,6 @@
                                 <th scope="colgroup" colspan="3" class="text-center">Spesa non documentata</th>
                                 <th scope="col" rowspan="2">Totale</th>
                                 <th scope="col" rowspan="2">Stato</th>
-                                <th scope="col" rowspan="2">Allegati</th>
                                 <th scope="col" rowspan="2">Azioni</th>
                             </tr>
                             <tr>
@@ -85,20 +112,27 @@
 
                                     $kmAmount = $kmUsed > 0 ? round($kmUsed * $ratePerKm, 2) : 0.0;
 
+                                    // TOTALE DI RIGA:
+                                    // Importo Km + spese documentate + SOLO vitto non documentato
                                     $rowTotal =
                                         $kmAmount +
                                         (float) ($r->travel_ticket_documented ?? 0) +
                                         (float) ($r->food_documented ?? 0) +
                                         (float) ($r->accommodation_documented ?? 0) +
                                         (float) ($r->various_documented ?? 0) +
-                                        (float) ($r->food_not_documented ?? 0) +
-                                        (float) ($r->daily_allowances_not_documented ?? 0) +
-                                        (float) ($r->special_daily_allowances_not_documented ?? 0);
+                                        (float) ($r->food_not_documented ?? 0);
 
                                     $computedGrandTotal += $rowTotal;
 
                                     $modalId = 'editRecordModal_' . $r->id;
+
+                                    // Apparecchiature / specializzazioni usate
+                                    $appsRaw = is_array($r->apparecchiature ?? null) ? $r->apparecchiature : [];
+                                    $apps = array_filter(array_map($prettySpec, $appsRaw));
+                                    $appsLabel = $apps ? implode(', ', $apps) : '—';
                                 @endphp
+
+                                {{-- Riga principale --}}
                                 <tr>
                                     <td>{{ $r->user->surname }} {{ $r->user->name }}</td>
                                     <td>{{ $r->type ?? '—' }}</td>
@@ -130,28 +164,44 @@
                                         @endif
                                     </td>
 
-                                    <td>
-                                        @if ($r->attachments && $r->attachments->count())
-                                            <ul class="mb-0">
-                                                @foreach ($r->attachments as $att)
-                                                    <li>
-                                                        <a href="{{ route('attachments.show', $att) }}" target="_blank"
-                                                            rel="noopener">
-                                                            {{ $att->original_name }}
-                                                        </a>
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        @else
-                                            <span class="text-muted">—</span>
-                                        @endif
-                                    </td>
-
                                     <td class="text-nowrap">
                                         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                                             data-bs-target="#{{ $modalId }}">
                                             Modifica
                                         </button>
+                                    </td>
+                                </tr>
+
+                                {{-- Riga secondaria: Specializzazioni + Descrizione + Allegati --}}
+                                <tr class="bg-light">
+                                    <td colspan="18">
+                                        <div class="py-2">
+                                            <div class="mb-1">
+                                                <strong>Specializzazioni / Apparecchiature:</strong>
+                                                <span class="text-break">{{ $appsLabel }}</span>
+                                            </div>
+                                            <div class="mb-1">
+                                                <strong>Descrizione:</strong>
+                                                <span class="text-break">{{ $r->description ?: '—' }}</span>
+                                            </div>
+                                            <div>
+                                                <strong>Allegati:</strong>
+                                                @if ($r->attachments && $r->attachments->count())
+                                                    <ul class="mb-0 list-unstyled d-inline">
+                                                        @foreach ($r->attachments as $att)
+                                                            <li class="d-inline me-2">
+                                                                <a href="{{ route('attachments.show', $att) }}"
+                                                                    target="_blank" rel="noopener">
+                                                                    {{ $att->original_name }}
+                                                                </a>
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+                                                @else
+                                                    <span class="text-muted">Nessuno</span>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
 
@@ -177,12 +227,12 @@
                                                         <div class="col-12 col-md-4">
                                                             <label class="form-label">Tipo *</label>
                                                             <select name="type" class="form-select" required>
-                                                                <option value="FC" @selected($r->type === 'FC')>FC —
-                                                                    Fuori città</option>
-                                                                <option value="CM" @selected($r->type === 'CM')>CM —
-                                                                    Comunale</option>
-                                                                <option value="CP" @selected($r->type === 'CP')>CP —
-                                                                    Provinciale</option>
+                                                                <option value="FC" @selected($r->type === 'FC')>FC
+                                                                    — Fuori città</option>
+                                                                <option value="CM" @selected($r->type === 'CM')>CM
+                                                                    — Comunale</option>
+                                                                <option value="CP" @selected($r->type === 'CP')>CP
+                                                                    — Provinciale</option>
                                                             </select>
                                                         </div>
 
@@ -291,14 +341,14 @@
                                 {{-- /MODALE --}}
                             @empty
                                 <tr>
-                                    <td colspan="19" class="text-center text-muted">Nessun record.</td>
+                                    <td colspan="18" class="text-center text-muted">Nessun record.</td>
                                 </tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr>
-                                {{-- totale colonne = 19 --}}
-                                <th colspan="16" class="text-end">Totale complessivo</th>
+                                {{-- totale colonne = 18 --}}
+                                <th colspan="15" class="text-end">Totale complessivo</th>
                                 <th>{{ number_format($computedGrandTotal, 2, ',', '.') }}</th>
                                 <th colspan="2"></th>
                             </tr>
