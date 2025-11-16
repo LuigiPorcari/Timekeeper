@@ -62,6 +62,7 @@ class RaceTempController extends Controller
         $typesMap = config('races.types', []);
         $type = $race->type;
 
+        // Specializzazioni di default dalla config
         $baseEquip = $typesMap[$type] ?? [];
         $typeSlug = Str::slug($type, '_');
 
@@ -70,6 +71,7 @@ class RaceTempController extends Controller
             return "{$typeSlug}__{$equipSlug}";
         }, array_filter($baseEquip, fn($v) => filled($v))));
 
+        // Crea la Race definitiva
         $newRace = Race::create([
             'name' => $race->name,
             'type' => $race->type,
@@ -82,16 +84,21 @@ class RaceTempController extends Controller
             'specialization_of_race' => $specs,
         ]);
 
-        // 4) Notifica
+        // Notifica: ora passo TUTTE le variabili usate dal template
         $brevo = new BrevoMailer();
         $brevo->sendEmail(
             $race->email,
-            'Gara accettata',
+            'Accettazione servizio gara',
             'emails.race.accepted',
-            ['raceName' => $race->name]
+            [
+                'raceName' => $race->name,
+                'raceStart' => $race->date_of_race,
+                'raceEnd' => $race->date_end,
+                'racePlace' => $race->place,
+            ]
         );
 
-        // 5) Elimina la temporanea
+        // Elimina la temporanea
         $race->delete();
 
         return redirect()->back()->with('success', 'Gara accettata e notificata con successo.');
@@ -102,13 +109,19 @@ class RaceTempController extends Controller
         $brevo = new BrevoMailer();
         $brevo->sendEmail(
             $race->email,
-            'Gara rifiutata',
+            'Rifiuto servizio gara',
             'emails.race.rejected',
-            ['raceName' => $race->name]
+            [
+                'raceName' => $race->name,
+                'raceStart' => $race->date_of_race,
+                'raceEnd' => $race->date_end,
+                'racePlace' => $race->place,
+            ]
         );
 
         $race->delete();
 
         return redirect()->back()->with('success', 'Gara rifiutata e notificata.');
     }
+
 }

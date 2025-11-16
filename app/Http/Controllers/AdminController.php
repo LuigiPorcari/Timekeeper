@@ -347,40 +347,74 @@ class AdminController extends Controller
         $assigned = collect($request->input('timekeepers', []));
         $leaderId = $request->input('leader');
 
-        // Mappa cronometristi assegnati con flag is_leader (true solo se corrisponde)
+        // pivot: is_leader = true solo per il DSC
         $syncData = $assigned->mapWithKeys(function ($id) use ($leaderId) {
-            return [$id => ['is_leader' => ($id == $leaderId)]];
+            return [
+                $id => ['is_leader' => ($id == $leaderId)],
+            ];
         })->toArray();
 
-        // Sincronizza cronometristi per la gara
+        // aggiorna gli assegnati alla gara
         $race->users()->sync($syncData);
 
-        $race->load(['users' => fn($q) => $q->select('users.id', 'users.email')]);
+        // ricarica cronometristi con pivot
+        $race->load([
+            'users' => function ($q) {
+                $q->select('users.id', 'users.name', 'users.surname', 'users.email');
+            },
+        ]);
 
-        $emailsSelected = $race->users->pluck('email')->filter()->values()->all();
+        $leader = $race->users->firstWhere('pivot.is_leader', true);
 
-        $leaderEmail = optional($race->users->firstWhere('pivot.is_leader', true))->email;
+        // dati comuni alle mail
+        $mailBaseData = [
+            'raceName' => $race->name,
+            'raceStart' => $race->date_of_race,
+            'raceEnd' => $race->date_end ?? $race->date_of_race,
+            'racePlace' => $race->place,
 
-        foreach ($emailsSelected as $email) {
-            if ($email != $leaderEmail) {
-                $brevo = new BrevoMailer();
-                $brevo->sendEmail(
-                    $email,
-                    'Convocazione gara',
-                    'emails.timekeeper.raceConvocation',
-                    ['raceName' => $race->name, 'raceStart' => $race->date_of_race, 'raceEnd' => $race->date_end ?? $race->date_of_race]
-                );
-            } else {
-                $brevo = new BrevoMailer();
-                $brevo->sendEmail(
-                    $email,
-                    'Convocazione gara DSC',
-                    'emails.timekeeper.raceConvocationDsc',
-                    ['raceName' => $race->name, 'raceStart' => $race->date_of_race, 'raceEnd' => $race->date_end ?? $race->date_of_race]
-                );
+            // opzionali: se non li hai in config, lasciali pure null,
+            // la view userà il testo [inserire ...]
+            'contactEmail' => config('mail.from.address') ?? null,
+            'contactPhone' => config('app.contact_phone') ?? null,
+            // questi per ora li lascio null così usi i placeholder
+            'meetInfo' => null,
+            'raceStartTime' => null,
+            'serviceManager' => null,
+            'teamInfo' => null,
+            'deadlineConfirm' => null,
+            'replyEmail' => null,
+            'placeToday' => null,
+        ];
+
+        foreach ($race->users as $user) {
+            if (empty($user->email)) {
+                continue;
             }
+
+            $brevo = new BrevoMailer();
+
+            $isLeader = $leader && $user->id === $leader->id;
+
+            $view = $isLeader
+                ? 'emails.timekeeper.raceConvocationDsc'
+                : 'emails.timekeeper.raceConvocation';
+
+            $subject = $isLeader
+                ? 'Convocazione gara DSC'
+                : 'Convocazione gara';
+
+            $brevo->sendEmail(
+                $user->email,
+                $subject,
+                $view,
+                $mailBaseData
+            );
         }
-        return redirect()->route('admin.racesList')->with('success', 'Cronometristi aggiornati con successo.');
+
+        return redirect()
+            ->route('admin.racesList')
+            ->with('success', 'Cronometristi aggiornati e convocazioni inviate con successo.');
     }
     public function timekeeperReport(User $user)
     {
