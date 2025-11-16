@@ -51,29 +51,97 @@
 
                             <hr class="my-3">
 
-                            {{-- Specializzazioni già assegnate --}}
+                            {{-- Specializzazioni già assegnate (raggruppate per tipo) --}}
                             <div class="mb-3">
                                 <div class="fw-semibold mb-2">Specializzazioni attuali</div>
+
                                 @php
                                     $current = $timekeeper->specialization ?? [];
-                                    $pretty = function ($val) {
-                                        // se è namespacizzato "tipo__equip", mostro solo l’equip "human"
-                                        if (str_contains($val, '__')) {
-                                            [$t, $e] = explode('__', $val, 2);
-                                            return ucwords(str_replace(['_', '-'], ' ', $e));
+                                    $typesMap = $typesMap ?? []; // passato dal controller
+                                    $slug = fn(string $t) => \Illuminate\Support\Str::slug($t, '_');
+
+                                    // mappa: slugTipo => labelTipo
+                                    $typeSlugToLabel = [];
+                                    foreach ($typesMap as $typeLabel => $equipList) {
+                                        $typeSlugToLabel[$slug($typeLabel)] = $typeLabel;
+                                    }
+
+                                    // helper per trovare il label umano dell'attrezzatura partendo dallo slug
+$equipHuman = function (string $typeLabel, string $equipSlug) use (
+    $typesMap,
+    $slug,
+) {
+    $list = $typesMap[$typeLabel] ?? [];
+    foreach ($list as $human) {
+        if ($slug($human) === $equipSlug) {
+            return $human; // esattamente quello del config
+        }
+    }
+    // fallback decoroso
+    return ucwords(str_replace(['_', '-'], ' ', $equipSlug));
+};
+
+// Raggruppo:
+// - Generali: contiene solo 'co'
+// - Per tipo: ogni chiave è "labelTipo", valori = array di label attrezzature
+$groups = [];
+$generali = [];
+
+foreach ($current as $val) {
+    if ($val === 'co') {
+        $generali[] = 'Co';
+        continue;
+    }
+
+    if (is_string($val) && str_contains($val, '__')) {
+        [$typeSlug, $equipSlug] = explode('__', $val, 2);
+        $typeLabel =
+            $typeSlugToLabel[$typeSlug] ??
+            ucwords(str_replace('_', ' ', $typeSlug));
+        $equipLabel = $equipHuman($typeLabel, $equipSlug);
+
+        if (!isset($groups[$typeLabel])) {
+            $groups[$typeLabel] = [];
+        }
+        $groups[$typeLabel][] = $equipLabel;
+    } else {
+        // Valore non namespacizzato: lo metto in "Altre"
+        if (!isset($groups['Altre'])) {
+            $groups['Altre'] = [];
+        }
+        $groups['Altre'][] = ucwords(str_replace(['_', '-'], ' ', (string) $val));
                                         }
-                                        return ucwords(str_replace(['_', '-'], ' ', $val));
-                                    };
+                                    }
                                 @endphp
 
                                 @if (empty($current))
                                     <span class="text-muted">Cronometrista generico</span>
                                 @else
-                                    <div class="d-flex flex-wrap gap-2">
-                                        @foreach ($current as $sp)
-                                            <span class="badge badge-soft border">
-                                                {{ $pretty($sp) }}
-                                            </span>
+                                    <div class="d-flex flex-column gap-2">
+                                        {{-- Generali --}}
+                                        @if (!empty($generali))
+                                            <div>
+                                                <div class="small text-muted mb-1">Generali</div>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    @foreach ($generali as $g)
+                                                        <span
+                                                            class="badge badge-soft border">{{ $g }}</span>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        {{-- Per tipo di gara (ordinate per nome tipo) --}}
+                                        @foreach (collect($groups)->sortKeys() as $typeLabel => $equipList)
+                                            <div>
+                                                <div class="small text-muted mb-1">{{ $typeLabel }}</div>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    @foreach (array_unique($equipList) as $equipLabel)
+                                                        <span
+                                                            class="badge badge-soft border">{{ $equipLabel }}</span>
+                                                    @endforeach
+                                                </div>
+                                            </div>
                                         @endforeach
                                     </div>
                                 @endif
@@ -123,12 +191,11 @@
                                 @csrf
 
                                 @php
-                                    // $typesMap arriva dal controller
                                     $typesMap = $typesMap ?? [];
                                     $slug = fn(string $text) => \Illuminate\Support\Str::slug($text, '_');
                                     $selected = $timekeeper->specialization ?? [];
 
-                                    // Costruiamo le sezioni: "Generali" solo con 'co', poi tutti i tipi con TUTTE le attrezzature
+                                    // Costruisco le sezioni: "Generali" (co) + tutti i tipi (namespaced)
                                     $sections = [];
                                     $sections['Generali'] = ['co'];
 
@@ -140,8 +207,8 @@
                                                 continue;
                                             }
                                             $rows[] = [
-                                                'id' => $typeSlug . '__' . $slug($lab), // value & id
-                                                'label' => $lab, // testo leggibile
+                                                'id' => $typeSlug . '__' . $slug($lab),
+                                                'label' => $lab,
                                             ];
                                         }
                                         if (!empty($rows)) {
@@ -162,7 +229,7 @@
                                         </div>
                                     </div>
 
-                                    {{-- Tutti i tipi con TUTTE le proprie attrezzature (namespacizzate) --}}
+                                    {{-- Tutti i tipi con le proprie attrezzature --}}
                                     @foreach ($sections as $title => $rows)
                                         @if ($title === 'Generali')
                                             @continue

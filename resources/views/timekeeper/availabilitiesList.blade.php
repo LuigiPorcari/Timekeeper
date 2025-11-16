@@ -19,7 +19,6 @@
                         <span class="badge rounded-pill text-bg-success">Verde</span>
                         <span class="badge rounded-pill text-bg-warning">Arancione</span>
                         <span class="badge rounded-pill text-bg-danger">Rosso</span>
-                        <small class="text-muted ms-1">Il significato dei colori è definito dall’organizzazione.</small>
                     </div>
                 </div>
 
