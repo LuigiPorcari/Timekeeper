@@ -9,32 +9,39 @@ use GuzzleHttp\Client as HttpClient;
 
 class BrevoMailer
 {
-    protected $apiInstance;
+    protected TransactionalEmailsApi $apiInstance;
 
     public function __construct()
     {
-        $config = Configuration::getDefaultConfiguration()->setApiKey('api-key', env('BREVO_API_KEY'));
-        \Log::info('Brevo API Key: ' . env('BREVO_API_KEY'));
+        $apiKey = config('services.brevo.key');
+
+        if (empty($apiKey)) {
+            \Log::error('Brevo API key mancante. Controlla BREVO_API_KEY nel .env');
+            throw new \RuntimeException('Brevo API key mancante');
+        }
+
+        $config = Configuration::getDefaultConfiguration()->setApiKey('api-key', $apiKey);
         $this->apiInstance = new TransactionalEmailsApi(new HttpClient(), $config);
     }
 
-    public function sendEmail($toEmail, $subject, $view, $data = [])
+    public function sendEmail(string $toEmail, string $subject, string $view, array $data = [])
     {
-        \Log::info('CHIAVE USATA: ' . env('BREVO_API_KEY'));
-
         try {
             $htmlContent = view($view, $data)->render();
 
             $sendSmtpEmail = new SendSmtpEmail([
                 'subject' => $subject,
-                'sender' => ['name' => 'TIMEKEEPER', 'email' => config('mail.from.address')],
+                'sender' => [
+                    'name' => config('services.brevo.sender_name'),
+                    'email' => config('services.brevo.sender_email'),
+                ],
                 'to' => [['email' => $toEmail]],
-                'htmlContent' => $htmlContent
+                'htmlContent' => $htmlContent,
             ]);
 
             return $this->apiInstance->sendTransacEmail($sendSmtpEmail);
         } catch (\Exception $e) {
-            \Log::error('Errore invio mail: ' . $e->getMessage());
+            \Log::error('Errore invio mail Brevo: ' . $e->getMessage());
             throw $e;
         }
     }

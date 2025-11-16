@@ -62,16 +62,19 @@ class RaceTempController extends Controller
         $typesMap = config('races.types', []);
         $type = $race->type;
 
-        // Specializzazioni di default dalla config
+        // apparecchiature di base per quel tipo di gara
         $baseEquip = $typesMap[$type] ?? [];
+
+        // slug del tipo di gara
         $typeSlug = Str::slug($type, '_');
 
+        // creo le specializzazioni namespacizzate tipo: "nuoto__piastre_doppie"
         $specs = array_values(array_map(function ($label) use ($typeSlug) {
             $equipSlug = Str::slug($label, '_');
             return "{$typeSlug}__{$equipSlug}";
         }, array_filter($baseEquip, fn($v) => filled($v))));
 
-        // Crea la Race definitiva
+        // creo la gara definitiva
         $newRace = Race::create([
             'name' => $race->name,
             'type' => $race->type,
@@ -84,16 +87,16 @@ class RaceTempController extends Controller
             'specialization_of_race' => $specs,
         ]);
 
-        // Notifica: ora passo TUTTE le variabili usate dal template
+        // Notifica accettazione
         $brevo = new BrevoMailer();
         $brevo->sendEmail(
             $race->email,
-            'Accettazione servizio gara',
+            'Gara accettata',
             'emails.race.accepted',
             [
                 'raceName' => $race->name,
                 'raceStart' => $race->date_of_race,
-                'raceEnd' => $race->date_end,
+                'raceEnd' => $race->date_end ?? $race->date_of_race,
                 'racePlace' => $race->place,
             ]
         );
@@ -109,12 +112,12 @@ class RaceTempController extends Controller
         $brevo = new BrevoMailer();
         $brevo->sendEmail(
             $race->email,
-            'Rifiuto servizio gara',
+            'Gara rifiutata',
             'emails.race.rejected',
             [
                 'raceName' => $race->name,
                 'raceStart' => $race->date_of_race,
-                'raceEnd' => $race->date_end,
+                'raceEnd' => $race->date_end ?? $race->date_of_race,
                 'racePlace' => $race->place,
             ]
         );

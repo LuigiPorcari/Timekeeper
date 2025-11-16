@@ -41,4 +41,10 @@ return [
         ],
     ],
 
+    'brevo' => [
+        'key' => env('BREVO_API_KEY'),
+        'sender_email' => env('MAIL_FROM_ADDRESS', 'no-reply@cronotorino2.it'),
+        'sender_name' => env('MAIL_FROM_NAME', 'TIMEKEEPER'),
+    ],
+
 ];
