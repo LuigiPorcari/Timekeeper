@@ -7,7 +7,7 @@
                     Gestione Report per la Gara {{ $race->name }} <br>
                     {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}
                     @if ($race->date_end)
-                    / {{ ucwords(\Carbon\Carbon::parse($race->date_end)->translatedFormat('l d F')) }}
+                        / {{ ucwords(\Carbon\Carbon::parse($race->date_end)->translatedFormat('l d F')) }}
                     @endif
                     a {{ $race->place }}
                 </h1>
@@ -48,7 +48,7 @@
                                 <input type="hidden" name="user_id" value="{{ auth()->id() }}">
                                 <input type="hidden" name="race_id" value="{{ $race->id }}">
 
-                                {{-- NUOVI CAMPI: Tipo + €/Km --}}
+                                {{-- Tipo + €/Km (€/Km solo DSC) --}}
                                 <div class="row g-3 mb-3">
                                     <div class="col-12 col-md-3">
                                         <label for="type" class="form-label">Tipo *</label>
@@ -68,17 +68,48 @@
                                         @enderror
                                     </div>
 
-                                    <div class="col-12 col-md-3">
-                                        <label for="euroKM" class="form-label">€/Km</label>
-                                        <input type="text" id="euroKM" name="euroKM" inputmode="decimal"
-                                            pattern="^\d{1,6}([,.]\d{1,2})?$"
-                                            class="form-control @error('euroKM') is-invalid @enderror"
-                                            value="{{ old('euroKM') }}" placeholder="es. 0,36">
-                                        <small class="text-muted">Puoi usare virgola o punto (max 2 decimali).</small>
-                                        @error('euroKM')
-                                            <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
+                                    @if (auth()->user()->isLeaderOf($race))
+                                        <div class="col-12 col-md-3">
+                                            <label for="euroKM" class="form-label">€/Km</label>
+                                            <input type="text" id="euroKM" name="euroKM" inputmode="decimal"
+                                                pattern="^\d{1,6}([,.]\d{1,2})?$"
+                                                class="form-control @error('euroKM') is-invalid @enderror"
+                                                value="{{ old('euroKM') }}" placeholder="es. 0,36">
+                                            <small class="text-muted">Puoi usare virgola o punto (max 2
+                                                decimali).</small>
+                                            @error('euroKM')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    @endif
+
+                                    {{-- Trasporto: solo DSC --}}
+                                    @if (auth()->user()->isLeaderOf($race))
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label d-block">Trasporto *</label>
+                                            <div class="d-flex align-items-center gap-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="transport_mode"
+                                                        id="tm_trasp" value="trasportato"
+                                                        {{ old('transport_mode', 'km') === 'trasportato' ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="tm_trasp">Trasportato</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="transport_mode"
+                                                        id="tm_km" value="km"
+                                                        {{ old('transport_mode', 'km') === 'km' ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="tm_km">Numero km</label>
+                                                </div>
+
+                                                <div class="ms-3" id="kmBox">
+                                                    <label for="km_documented" class="form-label mb-0 me-2">Km</label>
+                                                    <input type="number" step="any" name="km_documented"
+                                                        id="km_documented" class="form-control d-inline-block"
+                                                        style="max-width: 140px" value="{{ old('km_documented') }}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <div class="table-responsive">
@@ -88,53 +119,127 @@
                                                 <th rowspan="2">Servizio Giornaliero</th>
                                                 <th rowspan="2">Servizio Speciale</th>
                                                 <th rowspan="2">Tariffa</th>
-                                                <th rowspan="2">Km</th>
-                                                <th colspan="4" class="text-center">Spesa Documentata</th>
-                                                <th colspan="3" class="text-center">Spesa NON Documentata</th>
+                                                <th colspan="4" class="text-center">Spese Documentate</th>
+                                                @if (auth()->user()->isLeaderOf($race))
+                                                    <th colspan="3" class="text-center">Spese NON Documentate</th>
+                                                @endif
                                             </tr>
                                             <tr>
                                                 <th>Biglietto</th>
                                                 <th>Vitto</th>
                                                 <th>Alloggio</th>
                                                 <th>Varie</th>
-                                                <th>Vitto</th>
-                                                <th>Diaria</th>
-                                                <th>Diaria Speciale</th>
+                                                @if (auth()->user()->isLeaderOf($race))
+                                                    <th>Vitto</th>
+                                                    <th>Diaria</th>
+                                                    <th>Diaria Speciale</th>
+                                                @endif
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                @php
-                                                    $fields = [
-                                                        'daily_service',
-                                                        'special_service',
-                                                        'rate_documented',
-                                                        'km_documented',
-                                                        'travel_ticket_documented',
-                                                        'food_documented',
-                                                        'accommodation_documented',
-                                                        'various_documented',
-                                                        'food_not_documented',
-                                                        'daily_allowances_not_documented',
-                                                        'special_daily_allowances_not_documented',
-                                                    ];
-                                                @endphp
-                                                @foreach ($fields as $field)
-                                                    @if ($field === 'km_documented' && !auth()->user()->isLeaderOf($race))
-                                                        <td></td>
-                                                    @else
-                                                        <td>
-                                                            <input
-                                                                type="{{ $field === 'rate_documented' ? 'text' : 'number' }}"
-                                                                step="any" name="{{ $field }}"
-                                                                class="form-control" value="{{ old($field) }}" />
-                                                        </td>
-                                                    @endif
-                                                @endforeach
+                                                {{-- SG / SS / Tariffa --}}
+                                                <td><input type="number" step="1" name="daily_service"
+                                                        class="form-control" value="{{ old('daily_service') }}"></td>
+                                                <td><input type="number" step="1" name="special_service"
+                                                        class="form-control" value="{{ old('special_service') }}">
+                                                </td>
+                                                <td><input type="text" name="rate_documented" class="form-control"
+                                                        value="{{ old('rate_documented') }}"></td>
+
+                                                {{-- Documentate --}}
+                                                <td><input type="number" step="any"
+                                                        name="travel_ticket_documented" class="form-control"
+                                                        value="{{ old('travel_ticket_documented') }}"></td>
+                                                <td><input type="number" step="any" name="food_documented"
+                                                        class="form-control" value="{{ old('food_documented') }}">
+                                                </td>
+                                                <td><input type="number" step="any"
+                                                        name="accommodation_documented" class="form-control"
+                                                        value="{{ old('accommodation_documented') }}"></td>
+                                                <td><input type="number" step="any" name="various_documented"
+                                                        class="form-control" value="{{ old('various_documented') }}">
+                                                </td>
+
+                                                {{-- NON Documentate (solo DSC) --}}
+                                                @if (auth()->user()->isLeaderOf($race))
+                                                    <td><input type="number" step="any"
+                                                            name="food_not_documented" class="form-control"
+                                                            value="{{ old('food_not_documented') }}"></td>
+                                                    <td><input type="number" step="any"
+                                                            name="daily_allowances_not_documented"
+                                                            class="form-control"
+                                                            value="{{ old('daily_allowances_not_documented') }}"></td>
+                                                    <td><input type="number" step="any"
+                                                            name="special_daily_allowances_not_documented"
+                                                            class="form-control"
+                                                            value="{{ old('special_daily_allowances_not_documented') }}">
+                                                    </td>
+                                                @endif
                                             </tr>
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {{-- Apparecchiature (solo DSC) --}}
+                                @php
+                                    $labels = [
+                                        'elaborazione_dati' => 'Elaborazione dati',
+                                        'elaborazione_dati_completa' => 'Elaborazione dati completa',
+                                        'elaborazione_dati_parziale_live' => 'Elab. dati parziale (live)',
+                                        'vasca' => 'Vasca',
+                                        'partenza' => 'Partenza',
+                                        'arrivo' => 'Arrivo',
+                                        'fotofinish' => 'Fotofinish',
+                                        'manuale' => 'Manuale',
+                                        'centro_classifica' => 'Centro classifica',
+                                        'tracking' => 'Tracking',
+                                        'start_ps' => 'Start PS',
+                                        'fine_ps' => 'Fine PS',
+                                        'controllo_orari_co' => 'Controllo orari (CO)',
+                                        'riordini' => 'Riordini',
+                                        'assistenza_partenza_arrivo' => 'Assistenza/Partenza/Arrivo',
+                                        'palco_premiazioni' => 'Palco premiazioni',
+                                        'transponder_pc' => 'Transponder – PC',
+                                        'solo_cronometraggio_start' => 'Solo cronometraggio: start',
+                                        'solo_cronometraggio_fine' => 'Solo cronometraggio: fine',
+                                        'co_con_pc' => 'CO con PC',
+                                        'co_solo_tablet' => 'CO solo tablet',
+                                        'partenza_prova' => 'Partenza prova',
+                                        'fine_prova' => 'Fine prova',
+                                        'arrivo_bandelle' => 'Arrivo – Bandelle',
+                                        'partenza_orologio_tablet' => 'Partenza con orologio/tablet',
+                                        'prog_spec_concorso_ippico' => 'Prog. spec. concorso ippico',
+                                        'utilizzo_spec_programma' => 'Utilizzo specifico programma',
+                                        'contagiri' => 'Contagiri',
+                                        'pressostati' => 'Pressostati',
+                                        'tablet' => 'Tablet',
+                                    ];
+                                    $nice = fn($slug) => $labels[$slug] ?? ucwords(str_replace(['_', '-'], ' ', $slug));
+                                    $specs = is_array($race->specialization_of_race)
+                                        ? $race->specialization_of_race
+                                        : [];
+                                @endphp
+
+                                @if (auth()->user()->isLeaderOf($race) && !empty($specs))
+                                    <div class="mb-3">
+                                        <label class="form-label">Apparecchiature usate in gara</label>
+                                        <div class="row g-2">
+                                            @foreach ($specs as $spec)
+                                                <div class="col-12 col-sm-6 col-md-4">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            name="apparecchiature[]" id="app_{{ $spec }}"
+                                                            value="{{ $spec }}"
+                                                            {{ in_array($spec, old('apparecchiature', []), true) ? 'checked' : '' }}>
+                                                        <label class="form-check-label"
+                                                            for="app_{{ $spec }}">{{ $nice($spec) }}</label>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
 
                                 <div class="mb-3">
                                     <label for="description" class="form-label">Note</label>
@@ -165,24 +270,27 @@
                             <table class="table table-striped align-middle mb-0 table-vertical-separators">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Crono</th>
-                                        <th>Tipo</th>
-                                        <th>€/Km</th>
-                                        <th>Serv. Giorn.</th>
-                                        <th>Serv. Spec.</th>
-                                        <th>Tar.</th>
-                                        <th>Km</th>
-                                        <th>Imp. Km</th>
+                                        <th rowspan="2">Crono</th>
+                                        <th rowspan="2">Tipo</th>
+                                        <th rowspan="2">Trasporto</th>
+                                        <th rowspan="2">€/Km</th>
+                                        <th rowspan="2">Km (eff.)</th>
+                                        <th rowspan="2">Imp. Km</th>
+                                        <th colspan="4" class="text-center">Spese Documentate</th>
+                                        <th colspan="3" class="text-center">Spese NON Documentate</th>
+                                        <th rowspan="2">Apparecchiature</th>
+                                        <th rowspan="2">Totale</th>
+                                        <th rowspan="2">Note</th>
+                                        <th rowspan="2">Allegati</th>
+                                    </tr>
+                                    <tr>
                                         <th>Bigl.</th>
-                                        <th>Vitto (doc.)</th>
-                                        <th>Alloggio (doc.)</th>
-                                        <th>Varie (doc.)</th>
-                                        <th>Vitto (ND)</th>
-                                        <th>Diaria (ND)</th>
-                                        <th>Diaria Spec. (ND)</th>
-                                        <th>Totale</th>
-                                        <th>Note</th>
-                                        <th>Allegati</th>
+                                        <th>Vitto</th>
+                                        <th>Alloggio</th>
+                                        <th>Varie</th>
+                                        <th>Vitto</th>
+                                        <th>Diaria</th>
+                                        <th>Diaria Spec.</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -193,50 +301,71 @@
                                             $isOwner = $user->id === $record->user_id;
                                             $canSee = $isOwner || $isLeader;
 
-                                            // privacy: se non proprietario, usa i km del leader
-                                            $leaderRecord =
-                                                $isLeader && !$isOwner
-                                                    ? $records->firstWhere('user_id', $user->id)
-                                                    : null;
-                                            $km = $isOwner
-                                                ? $record->km_documented
-                                                : $leaderRecord->km_documented ?? null;
-
-                                            // €/Km del record (fallback 0.36)
                                             $ratePerKm = $record->euroKM !== null ? (float) $record->euroKM : 0.36;
+                                            $kmEff = (float) ($record->km_documented ?? 0);
+                                            $amount = round($kmEff * $ratePerKm, 2);
 
-                                            // Importo chilometrico e totale
-                                            $amount = $km ? round(((float) $km) * $ratePerKm, 2) : 0.0;
-                                            $total =
-                                                $amount +
-                                                (float) ($record->travel_ticket_documented ?? 0) +
-                                                (float) ($record->food_documented ?? 0) +
-                                                (float) ($record->accommodation_documented ?? 0) +
-                                                (float) ($record->various_documented ?? 0) +
-                                                (float) ($record->food_not_documented ?? 0) +
-                                                (float) ($record->daily_allowances_not_documented ?? 0) +
-                                                (float) ($record->special_daily_allowances_not_documented ?? 0);
+                                            $labels = [
+                                                'elaborazione_dati' => 'Elaborazione dati',
+                                                'elaborazione_dati_completa' => 'Elaborazione dati completa',
+                                                'elaborazione_dati_parziale_live' => 'Elab. dati parziale (live)',
+                                                'vasca' => 'Vasca',
+                                                'partenza' => 'Partenza',
+                                                'arrivo' => 'Arrivo',
+                                                'fotofinish' => 'Fotofinish',
+                                                'manuale' => 'Manuale',
+                                                'centro_classifica' => 'Centro classifica',
+                                                'tracking' => 'Tracking',
+                                                'start_ps' => 'Start PS',
+                                                'fine_ps' => 'Fine PS',
+                                                'controllo_orari_co' => 'Controllo orari (CO)',
+                                                'riordini' => 'Riordini',
+                                                'assistenza_partenza_arrivo' => 'Assistenza/Partenza/Arrivo',
+                                                'palco_premiazioni' => 'Palco premiazioni',
+                                                'transponder_pc' => 'Transponder – PC',
+                                                'solo_cronometraggio_start' => 'Solo cronometraggio: start',
+                                                'solo_cronometraggio_fine' => 'Solo cronometraggio: fine',
+                                                'co_con_pc' => 'CO con PC',
+                                                'co_solo_tablet' => 'CO solo tablet',
+                                                'partenza_prova' => 'Partenza prova',
+                                                'fine_prova' => 'Fine prova',
+                                                'arrivo_bandelle' => 'Arrivo – Bandelle',
+                                                'partenza_orologio_tablet' => 'Partenza con orologio/tablet',
+                                                'prog_spec_concorso_ippico' => 'Prog. spec. concorso ippico',
+                                                'utilizzo_spec_programma' => 'Utilizzo specifico programma',
+                                                'contagiri' => 'Contagiri',
+                                                'pressostati' => 'Pressostati',
+                                                'tablet' => 'Tablet',
+                                            ];
+                                            $nice = fn($slug) => $labels[$slug] ??
+                                                ucwords(str_replace(['_', '-'], ' ', $slug));
+                                            $apps = array_map($nice, $record->apparecchiature ?? []);
+                                            $appsLabel = $apps ? implode(', ', $apps) : '—';
                                         @endphp
 
                                         @if ($canSee)
-                                            {{-- Riga dati --}}
                                             <tr>
                                                 <td>{{ $record->user->name }} {{ $record->user->surname }}</td>
                                                 <td>{{ $record->type ?? '—' }}</td>
+                                                <td>{{ $record->transport_mode === 'trasportato' ? 'Trasportato' : 'Km' }}
+                                                </td>
                                                 <td>{{ number_format($ratePerKm, 2) }}</td>
-                                                <td>{{ $record->daily_service }}</td>
-                                                <td>{{ $record->special_service }}</td>
-                                                <td>{{ $record->rate_documented }}</td>
-                                                <td>{{ $km }}</td>
+                                                <td>{{ $kmEff }}</td>
                                                 <td>{{ number_format($amount, 2) }}</td>
+
+                                                {{-- Spese Documentate --}}
                                                 <td>{{ $record->travel_ticket_documented }}</td>
                                                 <td>{{ $record->food_documented }}</td>
                                                 <td>{{ $record->accommodation_documented }}</td>
                                                 <td>{{ $record->various_documented }}</td>
+
+                                                {{-- Spese NON Documentate --}}
                                                 <td>{{ $record->food_not_documented }}</td>
                                                 <td>{{ $record->daily_allowances_not_documented }}</td>
                                                 <td>{{ $record->special_daily_allowances_not_documented }}</td>
-                                                <td><strong>{{ number_format($total, 2) }}</strong></td>
+
+                                                <td>{{ $appsLabel }}</td>
+                                                <td><strong>{{ number_format($record->total, 2) }}</strong></td>
                                                 <td>{{ $record->description }}</td>
                                                 <td>
                                                     @if ($record->attachments && $record->attachments->count())
@@ -256,9 +385,8 @@
                                                 </td>
                                             </tr>
 
-                                            {{-- Riga azioni (sotto) --}}
+                                            {{-- Riga azioni --}}
                                             <tr class="bg-light">
-                                                {{-- 18 colonne totali in testa, quindi colspan 18 --}}
                                                 <td colspan="18">
                                                     <div class="d-flex flex-wrap justify-content-end gap-2">
                                                         @if (auth()->user()->isLeaderOf($race) && !$record->confirmed)
@@ -311,4 +439,22 @@
             </div>
         </div>
     </main>
+
+    {{-- Toggle km box in base al transport_mode (solo DSC) --}}
+    @if (auth()->user()->isLeaderOf($race))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const tmKm = document.getElementById('tm_km');
+                const tmTr = document.getElementById('tm_trasp');
+                const box = document.getElementById('kmBox');
+
+                function toggle() {
+                    box.style.display = (tmKm && tmKm.checked) ? 'block' : 'none';
+                }
+                if (tmKm) tmKm.addEventListener('change', toggle);
+                if (tmTr) tmTr.addEventListener('change', toggle);
+                toggle();
+            });
+        </script>
+    @endif
 </x-layout>

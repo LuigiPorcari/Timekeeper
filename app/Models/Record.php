@@ -26,6 +26,8 @@ class Record extends Model
         'confirmed',
         'type',
         'euroKM',
+        'apparecchiature',
+        'transport_mode'
     ];
 
 
@@ -47,7 +49,8 @@ class Record extends Model
     protected function casts(): array
     {
         return [
-            'euroKM' => 'decimal:2', // 2 decimali fissi
+            'euroKM' => 'decimal:2',
+            'apparecchiature' => 'array', // 2 decimali fissi
         ];
     }
 }

@@ -27,7 +27,8 @@
 
             <div class="card-body p-0">
                 {{-- NIENTE .table-responsive -> niente scroll orizzontale --}}
-                <table class="table table-hover table-striped table-sm align-middle mb-0 table-no-scroll table-bordered align-middle table-border-black">
+                <table
+                    class="table table-hover table-striped table-sm align-middle mb-0 table-no-scroll table-bordered align-middle table-border-black">
                     <caption class="visually-hidden">
                         Tabella con elenco delle gare, tipo, periodo, luogo, ente di fatturazione, allegato,
                         discipline, cronometristi e azioni disponibili.
@@ -35,12 +36,12 @@
                     <thead class="table-light">
                         <tr>
                             <th scope="col" class="w-name">Nome</th>
-                            <th scope="col" class="w-type">Tipo</th>
+                            <th scope="col" class="w-type">Tipologia gara</th>
                             <th scope="col" class="w-period">Periodo</th>
                             <th scope="col" class="w-place">Luogo</th>
                             <th scope="col" class="w-ente d-none d-md-table-cell">Ente fatturazione</th>
                             <th scope="col" class="w-allegato text-center">Allegato</th>
-                            <th scope="col" class="w-spec d-none d-lg-table-cell">Discipline</th>
+                            <th scope="col" class="w-spec d-none d-lg-table-cell">Apparecchiature</th>
                             <th scope="col" class="w-crono d-none d-lg-table-cell">Cronometristi</th>
                             @if (Auth::user()->is_admin)
                                 <th scope="col" class="text-center d-none d-md-table-cell">Inserisci cronometristi
@@ -63,6 +64,7 @@
                                     : null;
                                 $periodo = $startDate ? ($endDate ? $startDate . '<br>' . $endDate : $startDate) : '—';
 
+                                // Normalizza specialization_of_race in array
                                 $specs = $race->specialization_of_race;
                                 if (is_string($specs)) {
                                     $decoded = json_decode($specs, true);
@@ -71,6 +73,7 @@
                                 }
                                 $specs = is_array($specs) ? $specs : [];
 
+                                // URL allegato (se presente)
                                 $allegatoUrl = null;
                                 if (
                                     !empty($race->programma_allegato) &&
@@ -81,6 +84,7 @@
                                     $allegatoUrl = \Illuminate\Support\Facades\Storage::url($race->programma_allegato);
                                 }
 
+                                // Badge helper
                                 $badge = fn($text, $class = 'primary') => '<span class="badge rounded-pill text-bg-' .
                                     $class .
                                     ' bg-opacity-10 border border-' .
@@ -90,6 +94,23 @@
                                     '">' .
                                     e($text) .
                                     '</span>';
+
+                                // Formatter per apparecchiature: rimuove il prefisso del tipo (tipo__etichetta),
+                                // e trasforma lo slug in label leggibile.
+                                $formatSpec = function ($raw) {
+                                    if (!is_string($raw) || $raw === '') {
+                                        return '—';
+                                    }
+                                    $slug = $raw;
+                                    if (str_contains($raw, '__')) {
+                                        [$typeSlug, $slug] = explode('__', $raw, 2);
+                                    }
+                                    // sostituisco trattini/underscore con spazi, compatto gli spazi e metto in forma "Title Case"
+                                    $label = preg_replace('/\s+/', ' ', str_replace(['-', '_'], ' ', $slug));
+                                    $label = trim($label);
+                                    // mantieni acronimi semplici (es. REI, PS) se già in maiuscolo nello slug
+                                    return ucwords($label);
+                                };
                             @endphp
 
                             <tr>
@@ -125,7 +146,7 @@
                                     @forelse ($specs as $specialization)
                                         <span
                                             class="badge rounded-pill text-bg-secondary bg-opacity-10 border border-secondary text-secondary me-1 mb-1">
-                                            {{ ucwords(str_replace('_', ' ', $specialization)) }}
+                                            {{ $formatSpec($specialization) }}
                                         </span>
                                     @empty
                                         <em class="text-muted">Nessuna</em>
@@ -135,7 +156,7 @@
                                 <td class="d-none d-lg-table-cell">
                                     @forelse ($race->users as $user)
                                         <span class="badge text-bg-light border me-1 mb-1">
-                                            {{ $user->name }} {{ $user->surname }} 
+                                            {{ $user->name }} {{ $user->surname }}
                                         </span><br>
                                     @empty
                                         <em class="text-muted">Nessuno</em>

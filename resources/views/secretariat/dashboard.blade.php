@@ -46,11 +46,11 @@
                             <i class="fas fa-flag-checkered me-2"></i>
                             Report Gare
                         </a>
-                        <a class="btn btn-primary d-inline-flex align-items-center"
+                        {{-- <a class="btn btn-primary d-inline-flex align-items-center"
                             href="{{ route('secretariat.timekeepers.index') }}">
                             <i class="fas fa-stopwatch me-2"></i>
                             Report Cronometristi
-                        </a>
+                        </a> --}}
                     </div>
                 </div>
             </div>

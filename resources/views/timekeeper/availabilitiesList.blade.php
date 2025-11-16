@@ -1,3 +1,4 @@
+{{-- resources/views/timekeeper/availabilitiesList.blade.php --}}
 <x-layout documentTitle="Timekeeper Availabilities List">
     <main class="container mt-5 pt-5" role="main" aria-labelledby="avail-title">
         <div class="row justify-content-center">
@@ -12,17 +13,28 @@
                     </div>
                 @endif
 
+                {{-- Legenda colori --}}
+                <div class="mb-3">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="badge rounded-pill text-bg-success">Verde</span>
+                        <span class="badge rounded-pill text-bg-warning">Arancione</span>
+                        <span class="badge rounded-pill text-bg-danger">Rosso</span>
+                        <small class="text-muted ms-1">Il significato dei colori è definito dall’organizzazione.</small>
+                    </div>
+                </div>
+
                 <form action="{{ route('availability.storeUser') }}" method="POST"
                     aria-label="Selezione disponibilità mensile">
                     @csrf
 
                     @php
+                        // Raggruppa disponibilità per mese (es. "Febbraio 2025")
                         $groupedAvailabilities = [];
                         foreach ($availabilities as $availability) {
-                            $month = \Carbon\Carbon::parse($availability->date_of_availability)->translatedFormat(
+                            $monthLabel = \Carbon\Carbon::parse($availability->date_of_availability)->translatedFormat(
                                 'F Y',
                             );
-                            $groupedAvailabilities[$month][] = $availability;
+                            $groupedAvailabilities[$monthLabel][] = $availability;
                         }
                     @endphp
 
@@ -39,10 +51,10 @@
                                     <strong>{{ ucfirst($month) }}</strong>
                                 </h2>
                                 <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-primary month-select-all"
+                                    {{-- <button type="button" class="btn btn-sm btn-outline-primary month-select-all"
                                         data-month="{{ $monthSlug }}">
                                         Seleziona tutti
-                                    </button>
+                                    </button> --}}
                                     <button type="button" class="btn btn-sm btn-outline-secondary month-select-none"
                                         data-month="{{ $monthSlug }}">
                                         Nessuno
@@ -51,28 +63,99 @@
                             </div>
 
                             <div class="card-body pt-3">
-                                <div class="row g-2">
-                                    @foreach ($dates as $availability)
-                                        @php
-                                            $id = 'date-' . $availability->id;
-                                            $checked = in_array($availability->id, $selected ?? []);
-                                            $label = ucwords(
-                                                \Carbon\Carbon::parse(
-                                                    $availability->date_of_availability,
-                                                )->translatedFormat('l d'),
-                                            );
-                                        @endphp
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 18%">Giorno</th>
+                                                <th style="width: 10%">Colore</th>
+                                                <th class="text-center" style="width: 18%">Mattina</th>
+                                                <th class="text-center" style="width: 18%">Pomeriggio</th>
+                                                <th class="text-center" style="width: 18%">Trasferta</th>
+                                                <th class="text-center" style="width: 18%">Reperibilità</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($dates as $availability)
+                                                @php
+                                                    $aid = $availability->id;
+                                                    $dayLabel = ucwords(
+                                                        \Carbon\Carbon::parse(
+                                                            $availability->date_of_availability,
+                                                        )->translatedFormat('l d'),
+                                                    );
+                                                    $color = $availability->color ?? null; // 'verde'|'arancione'|'rosso'|null
+                                                    $badgeClass = match ($color) {
+                                                        'verde' => 'text-bg-success',
+                                                        'arancione' => 'text-bg-warning',
+                                                        'rosso' => 'text-bg-danger',
+                                                        default => 'text-bg-secondary',
+                                                    };
+                                                    $sel = $userSelections[$aid] ?? [];
+                                                    $isMorning = !empty($sel['morning']);
+                                                    $isAfternoon = !empty($sel['afternoon']);
+                                                    $isTrasferta = !empty($sel['trasferta']);
+                                                    $isReper = !empty($sel['reperibilita']);
+                                                @endphp
+                                                <tr class="month-{{ $monthSlug }}">
+                                                    <td class="fw-medium">{{ $dayLabel }}</td>
+                                                    <td>
+                                                        <span class="badge {{ $badgeClass }}">
+                                                            {{ $color ? ucfirst($color) : '—' }}
+                                                        </span>
+                                                    </td>
 
-                                        <div class="col-6 col-md-3 col-lg-2">
-                                            {{-- Toggle button style checkbox --}}
-                                            <input class="btn-check month-{{ $monthSlug }}" type="checkbox"
-                                                name="dates[]" id="{{ $id }}" value="{{ $availability->id }}"
-                                                {{ $checked ? 'checked' : '' }}>
-                                            <label class="btn btn-outline-primary w-100" for="{{ $id }}">
-                                                {{ $label }}
-                                            </label>
-                                        </div>
-                                    @endforeach
+                                                    {{-- Mattina --}}
+                                                    <td class="text-center">
+                                                        <div class="form-check d-inline-block">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="morning-{{ $aid }}"
+                                                                name="availability[{{ $aid }}][morning]"
+                                                                value="1" {{ $isMorning ? 'checked' : '' }}>
+                                                            <label class="form-check-label"
+                                                                for="morning-{{ $aid }}"></label>
+                                                        </div>
+                                                    </td>
+
+                                                    {{-- Pomeriggio --}}
+                                                    <td class="text-center">
+                                                        <div class="form-check d-inline-block">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="afternoon-{{ $aid }}"
+                                                                name="availability[{{ $aid }}][afternoon]"
+                                                                value="1" {{ $isAfternoon ? 'checked' : '' }}>
+                                                            <label class="form-check-label"
+                                                                for="afternoon-{{ $aid }}"></label>
+                                                        </div>
+                                                    </td>
+
+                                                    {{-- Trasferta --}}
+                                                    <td class="text-center">
+                                                        <div class="form-check d-inline-block">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="trasferta-{{ $aid }}"
+                                                                name="availability[{{ $aid }}][trasferta]"
+                                                                value="1" {{ $isTrasferta ? 'checked' : '' }}>
+                                                            <label class="form-check-label"
+                                                                for="trasferta-{{ $aid }}"></label>
+                                                        </div>
+                                                    </td>
+
+                                                    {{-- Reperibilità --}}
+                                                    <td class="text-center">
+                                                        <div class="form-check d-inline-block">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="reper-{{ $aid }}"
+                                                                name="availability[{{ $aid }}][reperibilita]"
+                                                                value="1" {{ $isReper ? 'checked' : '' }}>
+                                                            <label class="form-check-label"
+                                                                for="reper-{{ $aid }}"></label>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </section>
@@ -89,21 +172,21 @@
         </div>
     </main>
 
-    {{-- Seleziona tutti/nessuno per mese (solo UI) --}}
+    {{-- Seleziona tutti/nessuno per mese --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.month-select-all').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const month = btn.dataset.month;
-                    document.querySelectorAll('.btn-check.month-' + month).forEach(cb => cb
-                        .checked = true);
+                    document.querySelectorAll('.month-' + month + ' .form-check-input').forEach(
+                        cb => cb.checked = true);
                 });
             });
             document.querySelectorAll('.month-select-none').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const month = btn.dataset.month;
-                    document.querySelectorAll('.btn-check.month-' + month).forEach(cb => cb
-                        .checked = false);
+                    document.querySelectorAll('.month-' + month + ' .form-check-input').forEach(
+                        cb => cb.checked = false);
                 });
             });
         });

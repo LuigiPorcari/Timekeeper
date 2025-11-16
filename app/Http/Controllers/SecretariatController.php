@@ -10,6 +10,79 @@ use Illuminate\Support\Carbon;
 
 class SecretariatController extends Controller
 {
+
+    public function recordUpdate(Request $request, Record $record)
+    {
+        // Qui presumo che i permessi della Segreteria siano già gestiti via middleware/policy/ruolo.
+        // Validazione
+        $validated = $request->validate([
+            'type' => 'required|string|in:FC,CM,CP',
+            'euroKM' => ['nullable', 'regex:/^\d{1,6}([,.]\d{1,2})?$/'],
+
+            'daily_service' => 'nullable|integer',
+            'special_service' => 'nullable|integer',
+            'rate_documented' => 'nullable|string',
+
+            'km_documented' => 'nullable|numeric',
+            'travel_ticket_documented' => 'nullable|numeric',
+            'food_documented' => 'nullable|numeric',
+            'accommodation_documented' => 'nullable|numeric',
+            'various_documented' => 'nullable|numeric',
+
+            'food_not_documented' => 'nullable|numeric',
+            'daily_allowances_not_documented' => 'nullable|numeric',
+            'special_daily_allowances_not_documented' => 'nullable|numeric',
+
+            'description' => 'nullable|string',
+        ]);
+
+        // Normalizza €/Km (virgola -> punto)
+        $euroKM = $request->filled('euroKM')
+            ? (float) str_replace(',', '.', $request->input('euroKM'))
+            : null;
+
+        $ratePerKm = $euroKM !== null ? $euroKM : 0.36;
+
+        // Km effettivi (in segreteria settiamo direttamente il valore sul record)
+        $km = (float) ($request->km_documented ?? 0);
+        $amountDocumented = round($km * $ratePerKm, 2);
+
+        // Totale riga
+        $total = $amountDocumented
+            + (float) ($request->travel_ticket_documented ?? 0)
+            + (float) ($request->food_documented ?? 0)
+            + (float) ($request->accommodation_documented ?? 0)
+            + (float) ($request->various_documented ?? 0)
+            + (float) ($request->food_not_documented ?? 0)
+            + (float) ($request->daily_allowances_not_documented ?? 0)
+            + (float) ($request->special_daily_allowances_not_documented ?? 0);
+
+        $record->update([
+            'type' => $validated['type'],
+            'euroKM' => $euroKM,
+
+            'daily_service' => $request->daily_service,
+            'special_service' => $request->special_service,
+            'rate_documented' => $request->rate_documented,
+
+            'km_documented' => $km,
+            'amount_documented' => $amountDocumented,
+
+            'travel_ticket_documented' => $request->travel_ticket_documented,
+            'food_documented' => $request->food_documented,
+            'accommodation_documented' => $request->accommodation_documented,
+            'various_documented' => $request->various_documented,
+
+            'food_not_documented' => $request->food_not_documented,
+            'daily_allowances_not_documented' => $request->daily_allowances_not_documented,
+            'special_daily_allowances_not_documented' => $request->special_daily_allowances_not_documented,
+
+            'total' => round($total, 2),
+            'description' => $request->description,
+        ]);
+
+        return back()->with('success', 'Record aggiornato con successo.');
+    }
     public function timekeepersShow(User $user, Request $request)
     {
         // Periodo opzionale come nel filtro principale

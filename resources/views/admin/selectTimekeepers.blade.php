@@ -49,13 +49,24 @@
                                                     </div>
 
                                                     {{-- Badge specializzazioni (se presenti) --}}
-                                                    @php $specs = $timekeeper->specialization ?? []; @endphp
+                                                    @php
+                                                        $specs = $timekeeper->specialization ?? [];
+                                                        $pretty = function ($val) {
+                                                            // se è "tipo__equip" mostro solo l'equip
+    if (is_string($val) && str_contains($val, '__')) {
+        [$t, $e] = explode('__', $val, 2);
+        return ucwords(str_replace(['_', '-'], ' ', $e));
+    }
+    return ucwords(str_replace(['_', '-'], ' ', $val));
+                                                        };
+                                                    @endphp
+
                                                     @if (!empty($specs))
                                                         <div class="mt-2 d-flex flex-wrap gap-2">
                                                             @foreach ($specs as $s)
                                                                 <span
                                                                     class="badge bg-secondary-subtle text-secondary-emphasis border">
-                                                                    {{ str_replace('_', ' ', $s) }}
+                                                                    {{ $pretty($s) }}
                                                                 </span>
                                                             @endforeach
                                                         </div>

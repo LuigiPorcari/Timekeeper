@@ -11,6 +11,7 @@ class Availability extends Model
         return $this->belongsToMany(User::class);
     }
     protected $fillable = [
-        'date_of_availability'
+        'date_of_availability',
+        'color'
     ];
 }

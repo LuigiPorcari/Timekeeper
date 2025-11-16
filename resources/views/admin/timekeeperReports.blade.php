@@ -29,12 +29,11 @@
                     @else
                         <div class="card-body p-0">
                             <div class="table-responsive" style="overflow-x: visible;">
-                                <table
-                                    class="table table-bordered table-striped table-hover align-middle table-dark-borders mb-0">
+                                <table class="table table-bordered table-striped table-hover align-middle table-dark-borders mb-0">
                                     <thead class="table-light">
                                         <tr>
-                                            <th rowspan="2">Tipo</th> {{-- NUOVO --}}
-                                            <th rowspan="2">€/Km</th> {{-- NUOVO --}}
+                                            <th rowspan="2">Tipo</th>
+                                            <th rowspan="2">€/Km</th>
                                             <th rowspan="2">Servizio Giornaliero</th>
                                             <th rowspan="2">Servizio Speciale</th>
                                             <th rowspan="2">Tariffa</th>
@@ -43,8 +42,6 @@
                                             <th colspan="4" class="text-center">Spesa Documentata</th>
                                             <th colspan="3" class="text-center">Spesa NON Documentata</th>
                                             <th rowspan="2">Totale</th>
-                                            <th rowspan="2">Descrizione</th>
-                                            <th rowspan="2">Allegati</th>
                                         </tr>
                                         <tr>
                                             <th>Biglietto</th>
@@ -62,7 +59,7 @@
                                                 $ratePerKm = $record->euroKM !== null ? (float) $record->euroKM : 0.36;
                                                 $km = (float) ($record->km_documented ?? 0);
                                                 $amount = $km > 0 ? round($km * $ratePerKm, 2) : 0.0;
-                                                $total =
+                                                $rowTotal =
                                                     $amount +
                                                     (float) ($record->travel_ticket_documented ?? 0) +
                                                     (float) ($record->food_documented ?? 0) +
@@ -72,14 +69,16 @@
                                                     (float) ($record->daily_allowances_not_documented ?? 0) +
                                                     (float) ($record->special_daily_allowances_not_documented ?? 0);
                                             @endphp
+
+                                            {{-- Riga principale dati --}}
                                             <tr>
                                                 <td>{{ $record->type ?? '—' }}</td>
-                                                <td>{{ number_format($ratePerKm, 2) }}</td>
+                                                <td>{{ number_format($ratePerKm, 2, ',', '.') }}</td>
                                                 <td>{{ $record->daily_service }}</td>
                                                 <td>{{ $record->special_service }}</td>
                                                 <td>{{ $record->rate_documented }}</td>
                                                 <td>{{ $record->km_documented }}</td>
-                                                <td>{{ number_format($amount, 2) }}</td>
+                                                <td>{{ number_format($amount, 2, ',', '.') }}</td>
                                                 <td>{{ $record->travel_ticket_documented }}</td>
                                                 <td>{{ $record->food_documented }}</td>
                                                 <td>{{ $record->accommodation_documented }}</td>
@@ -87,23 +86,34 @@
                                                 <td>{{ $record->food_not_documented }}</td>
                                                 <td>{{ $record->daily_allowances_not_documented }}</td>
                                                 <td>{{ $record->special_daily_allowances_not_documented }}</td>
-                                                <td><strong>{{ number_format($total, 2) }}</strong></td>
-                                                <td>{{ $record->description }}</td>
-                                                <td>
-                                                    @if ($record->attachments && $record->attachments->count())
-                                                        <ul class="list-unstyled mb-0">
-                                                            @foreach ($record->attachments as $attachment)
-                                                                <li>
-                                                                    <a href="{{ route('attachments.show', $attachment) }}"
-                                                                        target="_blank" rel="noopener">
-                                                                        {{ $attachment->original_name }}
-                                                                    </a>
-                                                                </li>
-                                                            @endforeach
-                                                        </ul>
-                                                    @else
-                                                        <em>Nessuno</em>
-                                                    @endif
+                                                <td><strong>{{ number_format($rowTotal, 2, ',', '.') }}</strong></td>
+                                            </tr>
+
+                                            {{-- Riga secondaria: Descrizione + Allegati --}}
+                                            <tr class="bg-light">
+                                                <td colspan="15">
+                                                    <div class="py-2">
+                                                        <div class="mb-1">
+                                                            <strong>Descrizione:</strong>
+                                                            <span class="text-break">{{ $record->description ?: '—' }}</span>
+                                                        </div>
+                                                        <div>
+                                                            <strong>Allegati:</strong>
+                                                            @if ($record->attachments && $record->attachments->count())
+                                                                <ul class="list-unstyled d-inline mb-0">
+                                                                    @foreach ($record->attachments as $attachment)
+                                                                        <li class="d-inline me-2">
+                                                                            <a href="{{ route('attachments.show', $attachment) }}" target="_blank" rel="noopener">
+                                                                                {{ $attachment->original_name }}
+                                                                            </a>
+                                                                        </li>
+                                                                    @endforeach
+                                                                </ul>
+                                                            @else
+                                                                <em>Nessuno</em>
+                                                            @endif
+                                                        </div>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         @endforeach

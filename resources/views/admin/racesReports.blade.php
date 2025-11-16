@@ -10,7 +10,7 @@
                         <p class="text-muted mb-0">
                             {{ ucwords(\Carbon\Carbon::parse($race->date_of_race)->translatedFormat('l d F')) }}
                             @if ($race->date_end)
-                            / {{ ucwords(\Carbon\Carbon::parse($race->date_end)->translatedFormat('l d F')) }}
+                                / {{ ucwords(\Carbon\Carbon::parse($race->date_end)->translatedFormat('l d F')) }}
                             @endif
                             · {{ $race->place }}
                         </p>
@@ -30,8 +30,8 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th rowspan="2">Operatore</th>
-                                            <th rowspan="2">Tipo</th> {{-- NUOVO --}}
-                                            <th rowspan="2">€/Km</th> {{-- NUOVO --}}
+                                            <th rowspan="2">Tipo</th>
+                                            <th rowspan="2">€/Km</th>
                                             <th rowspan="2">Servizio Giornaliero</th>
                                             <th rowspan="2">Servizio Speciale</th>
                                             <th rowspan="2">Tariffa</th>
@@ -40,8 +40,6 @@
                                             <th colspan="4" class="text-center">Spesa Documentata</th>
                                             <th colspan="3" class="text-center">Spesa NON Documentata</th>
                                             <th rowspan="2">Totale</th>
-                                            <th rowspan="2">Descrizione</th>
-                                            <th rowspan="2">Allegati</th>
                                         </tr>
                                         <tr>
                                             <th>Biglietto</th>
@@ -57,7 +55,10 @@
                                         @foreach ($records as $record)
                                             @php
                                                 // Se esiste un record DSC e questa riga non è del DSC, usa i suoi km per la visualizzazione
-                                                $useCmsValues = $cmsRecord && $record->user_id !== $cmsRecord->user_id;
+                                                $useCmsValues =
+                                                    isset($cmsRecord) &&
+                                                    $cmsRecord &&
+                                                    $record->user_id !== $cmsRecord->user_id;
                                                 $kmDisplay = $useCmsValues
                                                     ? $cmsRecord->km_documented
                                                     : $record->km_documented;
@@ -71,7 +72,7 @@
                                                     : 0.0;
 
                                                 // Totale di riga
-                                                $total =
+                                                $rowTotal =
                                                     $amount +
                                                     (float) ($record->travel_ticket_documented ?? 0) +
                                                     (float) ($record->food_documented ?? 0) +
@@ -82,11 +83,11 @@
                                                     (float) ($record->special_daily_allowances_not_documented ?? 0);
                                             @endphp
 
+                                            {{-- Riga principale dati --}}
                                             <tr>
                                                 <td>{{ $record->user->name }} {{ $record->user->surname }}</td>
-                                                <td>{{ $record->type ?? '—' }}</td> {{-- NUOVO --}}
+                                                <td>{{ $record->type ?? '—' }}</td>
                                                 <td>{{ number_format($ratePerKm, 2, ',', '.') }}</td>
-                                                {{-- NUOVO --}}
                                                 <td>{{ $record->daily_service }}</td>
                                                 <td>{{ $record->special_service }}</td>
                                                 <td>{{ $record->rate_documented }}</td>
@@ -99,39 +100,45 @@
                                                 <td>{{ $record->food_not_documented }}</td>
                                                 <td>{{ $record->daily_allowances_not_documented }}</td>
                                                 <td>{{ $record->special_daily_allowances_not_documented }}</td>
-                                                <td><strong>{{ number_format($total, 2, ',', '.') }}</strong></td>
-                                                <td style="max-width: 320px;">
-                                                    <span class="d-inline-block text-truncate" style="max-width: 320px;"
-                                                        title="{{ $record->description }}">
-                                                        {{ $record->description }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    @if ($record->attachments && $record->attachments->count())
-                                                        <ul class="list-unstyled mb-0">
-                                                            @foreach ($record->attachments as $attachment)
-                                                                <li>
-                                                                    <a href="{{ route('attachments.show', $attachment) }}"
-                                                                        target="_blank"
-                                                                        class="link-primary text-decoration-none">
-                                                                        {{ $attachment->original_name }}
-                                                                    </a>
-                                                                </li>
-                                                            @endforeach
-                                                        </ul>
-                                                    @else
-                                                        <em class="text-muted">Nessuno</em>
-                                                    @endif
+                                                <td><strong>{{ number_format($rowTotal, 2, ',', '.') }}</strong></td>
+                                            </tr>
+
+                                            {{-- Riga secondaria: Descrizione + Allegati --}}
+                                            <tr class="bg-light">
+                                                <td colspan="16">
+                                                    <div class="py-2">
+                                                        <div class="mb-1">
+                                                            <strong>Descrizione:</strong>
+                                                            <span
+                                                                class="text-break">{{ $record->description ?: '—' }}</span>
+                                                        </div>
+                                                        <div>
+                                                            <strong>Allegati:</strong>
+                                                            @if ($record->attachments && $record->attachments->count())
+                                                                <ul class="list-unstyled d-inline mb-0">
+                                                                    @foreach ($record->attachments as $attachment)
+                                                                        <li class="d-inline me-2">
+                                                                            <a href="{{ route('attachments.show', $attachment) }}"
+                                                                                target="_blank"
+                                                                                class="link-primary text-decoration-none">
+                                                                                {{ $attachment->original_name }}
+                                                                            </a>
+                                                                        </li>
+                                                                    @endforeach
+                                                                </ul>
+                                                            @else
+                                                                <span class="text-muted">Nessuno</span>
+                                                            @endif
+                                                        </div>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         @endforeach
 
                                         {{-- Totale complessivo --}}
                                         <tr class="table-secondary fw-bold">
-                                            {{-- +2 colonne (Tipo, €/Km) => label span 15 col --}}
                                             <td colspan="15" class="text-end">Totale Generale</td>
                                             <td>{{ number_format($totalSum, 2, ',', '.') }}</td>
-                                            <td colspan="2"></td>
                                         </tr>
                                     </tbody>
                                 </table>

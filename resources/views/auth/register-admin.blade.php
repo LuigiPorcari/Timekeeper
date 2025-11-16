@@ -130,31 +130,6 @@
                                 </div>
                             </div>
 
-                            {{-- Logistica --}}
-                            <h2 class="form-section h6 text-uppercase text-muted mt-4 mb-3">Logistica</h2>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="transfer" class="form-label fw-semibold">Transferta</label>
-                                    <select class="form-select" id="transfer" name="transfer" required>
-                                        <option value="no" {{ old('transfer') === 'no' ? 'selected' : '' }}>No
-                                        </option>
-                                        <option value="1" {{ old('transfer') === '1' ? 'selected' : '' }}>1 notte
-                                        </option>
-                                        <option value="2/5" {{ old('transfer') === '2/5' ? 'selected' : '' }}>tra 2 e
-                                            5 notti</option>
-                                        <option value=">5" {{ old('transfer') === '>5' ? 'selected' : '' }}>più di 5
-                                            notti</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="auto" class="form-label fw-semibold">Automunito</label>
-                                    <select class="form-select" id="auto" name="auto" required>
-                                        <option value="1" {{ old('auto') === '1' ? 'selected' : '' }}>Sì</option>
-                                        <option value="0" {{ old('auto') === '0' ? 'selected' : '' }}>No</option>
-                                    </select>
-                                </div>
-                            </div>
-
                             {{-- Credenziali --}}
                             <h2 class="form-section h6 text-uppercase text-muted mt-4 mb-3">Credenziali</h2>
                             <div class="row g-3">

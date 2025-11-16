@@ -10,11 +10,10 @@
         @endif
 
         <div class="row g-4">
-            {{-- Colonna profilo --}}
+            {{-- COLONNA PROFILO --}}
             <div class="col-md-4">
                 <section aria-labelledby="dati-personali">
                     <div class="card shadow-sm rounded-3 overflow-hidden">
-                        {{-- HEADER BLU --}}
                         <div class="card-header page-header d-flex align-items-center">
                             <i class="fa-solid fa-user-clock me-2"></i>
                             <div>
@@ -43,16 +42,8 @@
                                 <dt class="col-5 text-muted small">Domicilio</dt>
                                 <dd class="col-7">{{ $timekeeper->domicile }}</dd>
 
-                                <dt class="col-5 text-muted small">Transferta</dt>
-                                <dd class="col-7">
-                                    {{ match ($timekeeper->transfer) {
-                                        'no' => 'NO',
-                                        '1' => '1 notte',
-                                        '2/5' => 'tra 2 e 5 notti',
-                                        '>5' => 'più di 5 notti',
-                                        default => '—',
-                                    } }}
-                                </dd>
+                                <dt class="col-5 text-muted small">Disponibilità trasferta</dt>
+                                <dd class="col-7">{{ $timekeeper->transfer ? 'SI' : 'NO' }}</dd>
 
                                 <dt class="col-5 text-muted small">Automunito</dt>
                                 <dd class="col-7">{{ $timekeeper->auto ? 'SI' : 'NO' }}</dd>
@@ -60,16 +51,28 @@
 
                             <hr class="my-3">
 
-                            {{-- Specializzazioni già assegnate (solo display) --}}
+                            {{-- Specializzazioni già assegnate --}}
                             <div class="mb-3">
                                 <div class="fw-semibold mb-2">Specializzazioni attuali</div>
-                                @if (empty($timekeeper->specialization))
+                                @php
+                                    $current = $timekeeper->specialization ?? [];
+                                    $pretty = function ($val) {
+                                        // se è namespacizzato "tipo__equip", mostro solo l’equip "human"
+                                        if (str_contains($val, '__')) {
+                                            [$t, $e] = explode('__', $val, 2);
+                                            return ucwords(str_replace(['_', '-'], ' ', $e));
+                                        }
+                                        return ucwords(str_replace(['_', '-'], ' ', $val));
+                                    };
+                                @endphp
+
+                                @if (empty($current))
                                     <span class="text-muted">Cronometrista generico</span>
                                 @else
                                     <div class="d-flex flex-wrap gap-2">
-                                        @foreach ($timekeeper->specialization as $specialization)
+                                        @foreach ($current as $sp)
                                             <span class="badge badge-soft border">
-                                                {{ str_replace('_', ' ', $specialization) }}
+                                                {{ $pretty($sp) }}
                                             </span>
                                         @endforeach
                                     </div>
@@ -99,11 +102,10 @@
                 </a>
             </div>
 
-            {{-- Colonna form specializzazioni --}}
+            {{-- COLONNA SELEZIONE SPECIALIZZAZIONI --}}
             <div class="col-md-8">
                 <section aria-labelledby="modifica-specializzazione">
                     <div class="card shadow-sm rounded-3 overflow-hidden">
-                        {{-- HEADER BLU --}}
                         <div class="card-header page-header d-flex align-items-center">
                             <i class="fa-solid fa-layer-group me-2"></i>
                             <div>
@@ -120,122 +122,67 @@
                                 </p>
                                 @csrf
 
-                                <fieldset>
-                                    <legend class="visually-hidden">Categorie di specializzazione disponibili</legend>
+                                @php
+                                    // $typesMap arriva dal controller
+                                    $typesMap = $typesMap ?? [];
+                                    $slug = fn(string $text) => \Illuminate\Support\Str::slug($text, '_');
+                                    $selected = $timekeeper->specialization ?? [];
 
-                                    @php
-                                        $typeToSpecs = [
-                                            'NUOTO -NUOTO SALVAMENTO' => ['elaborazione_dati', 'vasca'],
-                                            'SCI ALPINO – SCI NORDICO' => [
-                                                'partenza',
-                                                'arrivo',
-                                                'elaborazione_dati_completa',
-                                                'elaborazione_dati_parziale_live',
-                                            ],
-                                            'ATLETICA LEGGERA' => ['fotofinish', 'manuale'],
-                                            'MOTORALLY' => ['centro_classifica', 'tracking'],
-                                            'RALLY' => [
-                                                'centro_classifica',
-                                                'start_ps',
-                                                'fine_ps',
-                                                'controllo_orari_co',
-                                                'riordini',
-                                                'assistenza_partenza_arrivo',
-                                                'palco_premiazioni',
-                                            ],
-                                            'ENDURO OTO' => [
-                                                'transponder_pc',
-                                                'solo_cronometraggio_start',
-                                                'solo_cronometraggio_fine',
-                                                'co_con_pc',
-                                                'co_solo_tablet',
-                                            ],
-                                            'ENDURO MTB' => ['elaborazione_dati', 'partenza_prova', 'fine_prova'],
-                                            'MOTOCROSS' => ['elaborazione_dati', 'arrivo'],
-                                            'CANOA' => [
-                                                'elaborazione_dati',
-                                                'arrivo',
-                                                'partenza_orologio_tablet',
-                                                'fotofinish',
-                                            ],
-                                            'CANOTTAGGIO' => ['arrivo', 'partenza_orologio_tablet'],
-                                            'CICLISMO SU STRADA' => ['arrivo', 'fotofinish'],
-                                            'CICLISMO PISTA' => ['arrivo_bandelle', 'fotofinish'],
-                                            'DOWHINILL' => ['partenza', 'arrivo', 'elaborazione_dati'],
-                                            'AUTO REGOLARITA’' => ['pressostati', 'tablet'],
-                                            'AUTO STORICHE' => ['arrivo', 'start'],
-                                            'AUTOMOBILSMO CIRCUITO' => [
-                                                'elaborazione_dati',
-                                                'contagiri',
-                                                'transponder',
-                                            ],
-                                            'CONCORSO IPPICO' => ['prog_spec_concorso_ippico'],
-                                            'TROTTO' => ['utilizzo_spec_programma'],
-                                        ];
+                                    // Costruiamo le sezioni: "Generali" solo con 'co', poi tutti i tipi con TUTTE le attrezzature
+                                    $sections = [];
+                                    $sections['Generali'] = ['co'];
 
-                                        $counts = [];
-                                        foreach ($typeToSpecs as $specs) {
-                                            foreach ($specs as $s) {
-                                                $counts[$s] = ($counts[$s] ?? 0) + 1;
+                                    foreach ($typesMap as $typeLabel => $equipList) {
+                                        $typeSlug = $slug($typeLabel);
+                                        $rows = [];
+                                        foreach ($equipList as $lab) {
+                                            if (!filled($lab)) {
+                                                continue;
                                             }
+                                            $rows[] = [
+                                                'id' => $typeSlug . '__' . $slug($lab), // value & id
+                                                'label' => $lab, // testo leggibile
+                                            ];
                                         }
-                                        $commons = array_keys(array_filter($counts, fn($c) => $c > 1));
-
-                                        $sections = [];
-                                        $sections['Generali'] = array_unique(array_merge(['co'], $commons));
-                                        foreach ($typeToSpecs as $type => $specs) {
-                                            $specific = array_values(array_diff($specs, $commons));
-                                            if (!empty($specific)) {
-                                                $sections[$type] = $specific;
-                                            }
+                                        if (!empty($rows)) {
+                                            $sections[$typeLabel] = $rows;
                                         }
+                                    }
+                                @endphp
 
-                                        $labels = [
-                                            'elaborazione_dati' => 'Elaborazione dati',
-                                            'elaborazione_dati_completa' => 'Elaborazione dati completa',
-                                            'elaborazione_dati_parziale_live' => 'Elaborazione dati parziale (live)',
-                                            'partenza_orologio_tablet' => 'Partenza con orologio/tablet',
-                                            'arrivo_bandelle' => 'Arrivo – Bandelle',
-                                            'start_ps' => 'Start PS',
-                                            'fine_ps' => 'Fine PS',
-                                            'controllo_orari_co' => 'Controllo orari (CO)',
-                                            'assistenza_partenza_arrivo' => 'Assistenza/Partenza/Arrivo',
-                                            'transponder_pc' => 'Transponder – PC',
-                                            'solo_cronometraggio_start' => 'Solo cronometraggio: start',
-                                            'solo_cronometraggio_fine' => 'Solo cronometraggio: fine',
-                                            'co_con_pc' => 'CO con PC',
-                                            'co_solo_tablet' => 'CO solo tablet',
-                                            'prog_spec_concorso_ippico' => 'Programma specifico concorso ippico',
-                                            'utilizzo_spec_programma' => 'Utilizzo specifico programma',
-                                            'centro_classifica' => 'Centro classifica',
-                                            'fotofinish' => 'Fotofinish',
-                                            'pressostati' => 'Pressostati',
-                                        ];
-
-                                        $selected = $timekeeper->specialization ?? [];
-                                        $nice = fn(string $slug) => $labels[$slug] ??
-                                            ucwords(str_replace(['_', '-'], ' ', $slug));
-                                    @endphp
-
-                                    <div class="row g-4">
-                                        @foreach ($sections as $title => $specList)
-                                            <div class="col-md-6 col-lg-4">
-                                                <h3 class="h6 mb-2 border-bottom pb-1">{{ $title }}</h3>
-                                                @foreach ($specList as $spec)
-                                                    <div class="form-check mb-1">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            name="specialization[]" value="{{ $spec }}"
-                                                            id="spec_{{ $spec }}"
-                                                            {{ in_array($spec, $selected, true) ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="spec_{{ $spec }}">
-                                                            {{ $nice($spec) }}
-                                                        </label>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endforeach
+                                <div class="row g-4">
+                                    {{-- Generali (solo co) --}}
+                                    <div class="col-md-6 col-lg-4">
+                                        <h3 class="h6 mb-2 border-bottom pb-1">Generali</h3>
+                                        <div class="form-check mb-1">
+                                            <input class="form-check-input" type="checkbox" name="specialization[]"
+                                                id="spec_co" value="co"
+                                                {{ in_array('co', $selected, true) ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="spec_co">Co</label>
+                                        </div>
                                     </div>
-                                </fieldset>
+
+                                    {{-- Tutti i tipi con TUTTE le proprie attrezzature (namespacizzate) --}}
+                                    @foreach ($sections as $title => $rows)
+                                        @if ($title === 'Generali')
+                                            @continue
+                                        @endif
+                                        <div class="col-md-6 col-lg-4">
+                                            <h3 class="h6 mb-2 border-bottom pb-1">{{ $title }}</h3>
+                                            @foreach ($rows as $row)
+                                                <div class="form-check mb-1">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        name="specialization[]" id="spec_{{ $row['id'] }}"
+                                                        value="{{ $row['id'] }}"
+                                                        {{ in_array($row['id'], $selected, true) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="spec_{{ $row['id'] }}">
+                                                        {{ $row['label'] }}
+                                                    </label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endforeach
+                                </div>
 
                                 <div class="mt-4 text-end">
                                     <button type="submit" class="btn btn-primary"

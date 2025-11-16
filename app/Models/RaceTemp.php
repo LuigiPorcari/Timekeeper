@@ -18,6 +18,7 @@ class RaceTemp extends Model
         'programma_allegato',
         'note',
         'type',
+        'preventivo_da_aggiungere',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class RaceTemp extends Model
             'date_of_race' => 'date',
             'date_start' => 'date',
             'date_end' => 'date',
+            'preventivo_da_aggiungere' => 'boolean',
         ];
     }
 }

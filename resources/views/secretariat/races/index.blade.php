@@ -65,7 +65,7 @@
                         <tr>
                             <th class="w-period">Periodo</th>
                             <th class="w-name">Gara</th>
-                            <th class="w-type">Tipo</th>
+                            <th class="w-type">Tipologia gara</th>
                             <th class="w-place">Luogo</th>
                             <th class="w-ente d-none d-md-table-cell">Ente fatturazione</th>
                             <th class="w-allegato text-center">Allegato</th>

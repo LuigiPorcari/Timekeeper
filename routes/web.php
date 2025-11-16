@@ -101,5 +101,6 @@ Route::middleware(['auth'])
         Route::get('/races/{race}', [SecretariatController::class, 'racesShow'])->name('races.show');
         Route::get('/timekeepers', [SecretariatController::class, 'timekeepersIndex'])->name('timekeepers.index');
         Route::get('/timekeepers/{user}', [SecretariatController::class, 'timekeepersShow'])->name('timekeepers.show'); // 👈 nuovo
+        Route::put('/records/{record}', [SecretariatController::class, 'recordUpdate'])->name('records.update');
     });
 

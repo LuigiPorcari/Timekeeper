@@ -135,26 +135,32 @@
                             {{-- Logistica --}}
                             <h2 class="form-section h6 text-uppercase text-muted mt-4 mb-3">Logistica</h2>
                             <div class="row g-3">
-                                {{-- Transferta --}}
+                                {{-- Disponibilità trasferta (Sì/No) --}}
                                 <div class="col-md-6">
-                                    <label for="transfer" class="form-label fw-semibold">Transferta</label>
-                                    <div class="input-group input-icon">
+                                    <label class="form-label fw-semibold d-block">Disponibilità trasferta</label>
+                                    <div class="input-group">
                                         <span class="input-group-text" id="icon-transfer">
                                             <i class="fa-solid fa-briefcase"></i>
                                         </span>
-                                        <select class="form-select" id="transfer" name="transfer" required
-                                            aria-describedby="icon-transfer">
-                                            <option value="no" {{ old('transfer') === 'no' ? 'selected' : '' }}>No
-                                            </option>
-                                            <option value="1" {{ old('transfer') === '1' ? 'selected' : '' }}>1
-                                                notte</option>
-                                            <option value="2/5" {{ old('transfer') === '2/5' ? 'selected' : '' }}>tra
-                                                2 e 5 notti</option>
-                                            <option value=">5" {{ old('transfer') === '>5' ? 'selected' : '' }}>più
-                                                di 5 notti</option>
-                                        </select>
+                                        <div class="form-control p-2">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="transfer"
+                                                    id="transfer_yes" value="1"
+                                                    {{ old('transfer', '0') === '1' ? 'checked' : '' }} required
+                                                    aria-describedby="icon-transfer">
+                                                <label class="form-check-label" for="transfer_yes">Sì</label>
+                                            </div>
+                                            <div class="form-check form-check-inline ms-3">
+                                                <input class="form-check-input" type="radio" name="transfer"
+                                                    id="transfer_no" value="0"
+                                                    {{ old('transfer', '0') === '0' ? 'checked' : '' }} required
+                                                    aria-describedby="icon-transfer">
+                                                <label class="form-check-label" for="transfer_no">No</label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+
 
                                 {{-- Automunito --}}
                                 <div class="col-md-6">

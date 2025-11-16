@@ -23,7 +23,8 @@ class User extends Authenticatable
     }
     public function availabilities()
     {
-        return $this->belongsToMany(Availability::class);
+        return $this->belongsToMany(\App\Models\Availability::class)
+            ->withPivot(['morning', 'afternoon', 'trasferta', 'reperibilita']);
     }
     public function records()
     {
@@ -74,6 +75,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'specialization' => 'array',
+            'transfer' => 'boolean',
         ];
     }
     public function sendPasswordResetNotification($token)

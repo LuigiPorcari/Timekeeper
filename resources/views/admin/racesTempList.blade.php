@@ -17,10 +17,11 @@
                     <thead class="table-light">
                         <tr>
                             <th>Gara</th>
-                            <th>Tipo</th>
+                            <th>Tipologia gara</th>
                             <th>Periodo</th>
                             <th>Luogo</th>
                             <th>Ente fatturazione</th>
+                            <th>Preventivo</th> {{-- ✅ nuova colonna --}}
                             <th>Allegato</th>
                             <th class="text-center">Azioni</th>
                         </tr>
@@ -34,13 +35,12 @@
                                 $end = $race->date_end
                                     ? \Illuminate\Support\Carbon::parse($race->date_end)->format('d/m/Y')
                                     : null;
-                                // periodo su due righe se c'è una data di fine
-$periodo = $start ? ($end ? $start . '<br>' . $end : $start) : '—';
+                                $periodo = $start ? ($end ? $start . '<br>' . $end : $start) : '—';
 
-$allegatoUrl = null;
-if (
-    !empty($race->programma_allegato) &&
-    \Illuminate\Support\Facades\Storage::disk('public')->exists(
+                                $allegatoUrl = null;
+                                if (
+                                    !empty($race->programma_allegato) &&
+                                    \Illuminate\Support\Facades\Storage::disk('public')->exists(
                                         $race->programma_allegato,
                                     )
                                 ) {
@@ -53,6 +53,16 @@ if (
                                 <td>{!! $periodo !!}</td>
                                 <td>{{ $race->place ?? '—' }}</td>
                                 <td>{{ $race->ente_fatturazione ?? '—' }}</td>
+
+                                {{-- ✅ Nuova colonna: Preventivo da aggiungere --}}
+                                <td>
+                                    @if ($race->preventivo_da_aggiungere)
+                                        <span class="text-success fw-semibold">Sì</span>
+                                    @else
+                                        <span class="text-muted">No</span>
+                                    @endif
+                                </td>
+
                                 <td>
                                     @if ($allegatoUrl)
                                         <a href="{{ $allegatoUrl }}" class="btn btn-sm btn-outline-secondary"
@@ -63,6 +73,7 @@ if (
                                         <span class="text-muted">—</span>
                                     @endif
                                 </td>
+
                                 <td class="text-center">
                                     <div class="d-inline-flex gap-2">
                                         <form method="POST" action="{{ route('race-temp.accept', $race->id) }}">
@@ -79,11 +90,12 @@ if (
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center text-muted">Nessuna richiesta presente.</td>
+                                <td colspan="8" class="text-center text-muted">Nessuna richiesta presente.</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
+
             </div>
         </div>
     </main>

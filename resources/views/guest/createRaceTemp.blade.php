@@ -1,4 +1,3 @@
-{{-- resources/views/guest/createRaceTemp.blade.php --}}
 <x-layout documentTitle="Guest Create Race Temp">
     <main class="container pt-5 mt-5" id="main-content" aria-labelledby="page-title">
         <h1 id="page-title" class="mb-4">Crea nuova gara temporanea</h1>
@@ -23,14 +22,13 @@
 
                     <div class="card-body">
                         <form action="{{ route('raceTemp.store') }}" method="POST" enctype="multipart/form-data"
-                            aria-describedby="race-form-description">
+                            aria-describedby="race-form-description" novalidate>
                             @csrf
                             <p id="race-form-description" class="visually-hidden">
                                 Inserisci il periodo, il luogo, l’ente per fatturazione, eventuale programma e il tipo
                                 di gara.
                             </p>
 
-                            {{-- Email di contatto --}}
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email contatto *</label>
                                 <input id="email" type="email" name="email"
@@ -41,7 +39,6 @@
                                 @enderror
                             </div>
 
-                            {{-- Nome gara --}}
                             <div class="mb-3">
                                 <label for="name" class="form-label">Nome Gara *</label>
                                 <input id="name" type="text" name="name"
@@ -52,16 +49,40 @@
                                 @enderror
                             </div>
 
-                            {{-- Tipo gara --}}
+                            {{-- Tipo gara da config con fallback --}}
                             <div class="mb-3">
                                 <label for="type" class="form-label">Tipo gara *</label>
+                                @php
+                                    $types = array_keys(config('races.types', []));
+                                    if (empty($types)) {
+                                        $types = [
+                                            'NUOTO',
+                                            'NUOTO - MANUALE',
+                                            'RALLY START PS',
+                                            'RALLY FINE PS',
+                                            'ENDURO START PS',
+                                            'ENDURO FINE PS',
+                                            'DOWHINILL',
+                                            'SCI ALPINO',
+                                            'SCI NORDICO (FONDO)',
+                                            'ATLETICA - LYNX',
+                                            'ATLETICA MANUALE',
+                                            'CICLISMO - LYNX',
+                                            'CICLISMO MANUALE',
+                                            'ENDURO MTB',
+                                            'TROTTO',
+                                            'CONCORSO IPPICO',
+                                        ];
+                                    }
+                                @endphp
                                 <select id="type" name="type"
                                     class="form-select @error('type') is-invalid @enderror" required>
                                     <option value="" disabled {{ old('type') ? '' : 'selected' }}>Seleziona…
                                     </option>
-                                    @foreach (['NUOTO -NUOTO SALVAMENTO', 'SCI ALPINO – SCI NORDICO', 'ATLETICA LEGGERA', 'MOTORALLY', 'RALLY', 'ENDURO MOTO', 'ENDURO MTB', 'MOTOCROSS', 'CANOA', 'CANOTTAGGIO', 'CICLISMO SU STRADA', 'CICLISMO PISTA', 'DOWHINILL', 'AUTO REGOLARITA’', 'AUTO STORICHE', 'AUTOMOBILSMO CIRCUITO', 'CONCORSO IPPICO', 'TROTTO'] as $t)
+                                    @foreach ($types as $t)
                                         <option value="{{ $t }}" {{ old('type') === $t ? 'selected' : '' }}>
-                                            {{ $t }}</option>
+                                            {{ $t }}
+                                        </option>
                                     @endforeach
                                 </select>
                                 @error('type')
@@ -69,7 +90,6 @@
                                 @enderror
                             </div>
 
-                            {{-- Periodo --}}
                             <div class="row">
                                 <div class="col-12 col-md-6 mb-3">
                                     <label for="date_of_race" class="form-label">Data inizio *</label>
@@ -91,7 +111,6 @@
                                 </div>
                             </div>
 
-                            {{-- Luogo --}}
                             <div class="mb-3">
                                 <label for="place" class="form-label">Luogo *</label>
                                 <input id="place" type="text" name="place"
@@ -102,18 +121,43 @@
                                 @enderror
                             </div>
 
-                            {{-- Ente fatturazione --}}
                             <div class="mb-3">
-                                <label for="ente_fatturazione" class="form-label">Ente per fatturazione</label>
+                                <label for="ente_fatturazione" class="form-label">Ente per fatturazione *</label>
                                 <input id="ente_fatturazione" type="text" name="ente_fatturazione"
                                     class="form-control @error('ente_fatturazione') is-invalid @enderror"
-                                    value="{{ old('ente_fatturazione') }}">
+                                    value="{{ old('ente_fatturazione') }}" required>
                                 @error('ente_fatturazione')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
 
-                            {{-- Programma --}}
+                            <div class="mb-3">
+                                <label class="form-label d-block">Preventivo da aggiungere? *</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input @error('preventivo_da_aggiungere') is-invalid @enderror"
+                                            type="radio" name="preventivo_da_aggiungere" id="preventivo_si"
+                                            value="1"
+                                            {{ old('preventivo_da_aggiungere', '0') === '1' ? 'checked' : '' }}
+                                            required>
+                                        <label class="form-check-label" for="preventivo_si">Sì</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input @error('preventivo_da_aggiungere') is-invalid @enderror"
+                                            type="radio" name="preventivo_da_aggiungere" id="preventivo_no"
+                                            value="0"
+                                            {{ old('preventivo_da_aggiungere', '0') === '0' ? 'checked' : '' }}
+                                            required>
+                                        <label class="form-check-label" for="preventivo_no">No</label>
+                                    </div>
+                                </div>
+                                @error('preventivo_da_aggiungere')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                            </div>
+
                             <div class="mb-3">
                                 <label for="programma_allegato" class="form-label">Programma (PDF/DOC/ZIP, max
                                     10MB)</label>
@@ -125,7 +169,6 @@
                                 @enderror
                             </div>
 
-                            {{-- Note --}}
                             <div class="mb-4">
                                 <label for="note" class="form-label">Note / Commenti</label>
                                 <textarea id="note" name="note" rows="3" class="form-control @error('note') is-invalid @enderror">{{ old('note') }}</textarea>
@@ -138,8 +181,8 @@
                                 <button type="submit" class="btn btn-ficr">Invia richiesta</button>
                             </div>
                         </form>
-                    </div> {{-- /.card-body --}}
-                </div> {{-- /.card --}}
+                    </div>
+                </div>
             </div>
         </div>
     </main>

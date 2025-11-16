@@ -25,12 +25,12 @@
                     <thead class="table-light">
                         <tr>
                             <th scope="col" class="w-name">Nome</th>
-                            <th scope="col" class="w-type">Tipo</th>
+                            <th scope="col" class="w-type">Tipologia gara</th>
                             <th scope="col" class="w-period">Periodo</th>
                             <th scope="col" class="w-place">Luogo</th>
                             <th scope="col" class="w-ente d-none d-md-table-cell">Ente fatturazione</th>
                             <th scope="col" class="w-allegato text-center">Allegato</th>
-                            <th scope="col" class="w-spec d-none d-lg-table-cell">Discipline</th>
+                            {{-- <th scope="col" class="w-spec d-none d-lg-table-cell">Apparecchiature</th> --}}
                             <th scope="col" class="w-crono d-none d-lg-table-cell">Cronometristi</th>
                             <th scope="col" class="text-center w-report">Report</th>
                         </tr>
@@ -109,7 +109,7 @@ if (
                                     @endif
                                 </td>
 
-                                <td class="d-none d-lg-table-cell">
+                                {{-- <td class="d-none d-lg-table-cell">
                                     @forelse ($specs as $specialization)
                                         <span
                                             class="badge rounded-pill text-bg-secondary bg-opacity-10 border border-secondary text-secondary me-1 mb-1">
@@ -118,7 +118,7 @@ if (
                                     @empty
                                         <em class="text-muted">Nessuna</em>
                                     @endforelse
-                                </td>
+                                </td> --}}
 
                                 <td class="d-none d-lg-table-cell">
                                     @forelse ($race->users as $user)

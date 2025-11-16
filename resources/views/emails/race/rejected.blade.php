@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Richiesta gara</title>
+    <title>Rifiuto Servizio Gara</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -16,7 +16,7 @@
 
         .container {
             width: 100%;
-            max-width: 600px;
+            max-width: 700px;
             background-color: #ffffff;
             margin: 30px auto;
             padding: 30px;
@@ -25,18 +25,32 @@
         }
 
         h1 {
+            color: #dc3545;
+            font-size: 22px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        h2 {
             color: #007bff;
-            font-size: 24px;
+            font-size: 18px;
+            margin-top: 20px;
+            margin-bottom: 5px;
         }
 
         p {
             font-size: 16px;
-            line-height: 1.5;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        strong {
+            color: #000;
         }
 
         a.button {
             display: inline-block;
-            margin-top: 20px;
+            margin-top: 25px;
             padding: 12px 24px;
             background-color: #007bff;
             color: #ffffff !important;
@@ -54,19 +68,85 @@
             font-size: 12px;
             color: #777777;
             text-align: center;
+            border-top: 1px solid #eaeaea;
+            padding-top: 10px;
+        }
+
+        .header-info {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .signature {
+            margin-top: 40px;
+            line-height: 1.6;
+        }
+
+        .signature strong {
+            display: block;
+            margin-top: 15px;
         }
     </style>
 </head>
 
 <body>
     <div class="container" role="main">
-        <h1>Gara rifiutata</h1>
-        <p>La gara <strong>{{ $raceName }}</strong> è stata rifiutata.</p>
-        <p>Cordiali saluti</p>
+        <div class="header-info">
+            <strong>FEDERAZIONE ITALIANA CRONOMETRISTI</strong><br>
+            ASSOCIAZIONE CRONOMETRISTI SPORTIVI TORINO<br>
+            Email: [inserire email] | Telefono: [inserire numero]
+        </div>
+
+        <h1>Rifiuto Servizio Gara</h1>
+
+        <p><strong>Alla cortese attenzione del Comitato Organizzatore</strong></p>
+
+        <p><strong>Oggetto:</strong> Comunicazione di non accettazione servizio gara –
+            <strong>{{ $raceName }}</strong> /
+            <strong>{{ \Carbon\Carbon::parse($raceStart)->format('d/m/Y') }}</strong>
+        </p>
+
+        <p>Gentili Organizzatori,</p>
+
+        <p>
+            Con riferimento alla richiesta di servizio di cronometraggio relativa alla manifestazione
+            <strong>{{ $raceName }}</strong>, programmata per il
+            <strong>{{ \Carbon\Carbon::parse($raceStart)->format('d/m/Y') }}</strong>
+            @if (!empty($raceEnd) && $raceEnd !== $raceStart)
+                – <strong>{{ \Carbon\Carbon::parse($raceEnd)->format('d/m/Y') }}</strong>
+            @endif
+            presso <strong>{{ $racePlace ?? 'luogo da definire' }}</strong>,
+            si comunica che l’<strong>Associazione Cronometristi Sportivi Torino</strong>
+            non potrà garantire la copertura del servizio richiesto.
+        </p>
+
+        <p>
+            La decisione è dovuta a motivazioni organizzative e di disponibilità di personale tecnico.
+        </p>
+
+        <p>
+            Restiamo a disposizione per eventuali chiarimenti e per valutare future collaborazioni.
+        </p>
+
+        <div class="signature">
+            <p>Distinti saluti,</p>
+            <p>
+                Torino, {{ \Carbon\Carbon::now()->format('d/m/Y') }}
+            </p>
+            <strong>Il Presidente</strong>
+            <p>_____________________________<br>
+                (Nome e Cognome)</p>
+        </div>
+
         <a href="{{ route('homepage') }}" class="button">Visita il sito</a>
+
         <div class="footer">
-            © {{ date('Y') }} TimeKeeper. Tutti i diritti riservati.
+            © {{ date('Y') }} Associazione Cronometristi Sportivi Torino – Tutti i diritti riservati.
         </div>
     </div>
 </body>
+
 </html>

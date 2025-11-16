@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->date('date_of_birth');
             $table->string('residence')->nullable();
             $table->string('domicile');
-            $table->string('transfer')->nullable();
+            $table->boolean('transfer')->default(false);
             $table->boolean('auto')->default(false);
             $table->json('specialization')->nullable();
             $table->timestamp('email_verified_at')->nullable();

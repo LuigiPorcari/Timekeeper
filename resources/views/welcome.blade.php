@@ -25,7 +25,7 @@
                 </div>
             </section>
 
-            {{-- CTA tiles --}}
+            {{-- CTA tiles: prima riga --}}
             <section class="row justify-content-center g-4" aria-label="Azioni disponibili">
                 <div class="col-12 col-md-6 col-lg-4">
                     <a class="cta-card text-decoration-none d-block h-100" href="{{ route('timekeeper.register.form') }}"
@@ -49,6 +49,22 @@
                     </a>
                 </div>
             </section>
+
+            {{-- CTA: seconda riga solo con Risultati Live --}}
+            <section class="row justify-content-center mt-3">
+                <div class="col-12 col-md-6 col-lg-4">
+                    <a class="cta-card text-decoration-none d-block h-100 text-center" href="http://www.cronotorino.it/"
+                        target="_blank" rel="noopener" aria-label="Vai ai risultati live su Cronotorino">
+                        <div class="cta-card__icon mx-auto">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <h3 class="h5 m-0 text-dark">Risultati Live</h3>
+                        <p class="text-secondary mb-0">http://www.cronotorino.it/</p>
+                    </a>
+                </div>
+            </section>
+
+
         @endguest
     </main>
 </x-layout>

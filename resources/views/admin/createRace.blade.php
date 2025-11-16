@@ -28,8 +28,7 @@
 
                     <p id="race-form-description" class="visually-hidden">
                         Inserisci la data (inizio/fine), il luogo, i dati per fatturazione, eventuale programma allegato
-                        e il
-                        tipo di gara da creare.
+                        e il tipo di gara da creare.
                     </p>
 
                     {{-- Sezione: Informazioni generali --}}
@@ -78,55 +77,55 @@
                             @enderror
                         </div>
 
-                        {{-- Tipo gara --}}
+                        {{-- Tipo gara (config con fallback) --}}
                         <div class="col-12 col-md-6">
                             <label for="type" class="form-label">Tipo gara *</label>
+                            @php
+                                $typesFromConfig = array_keys(config('races.types', []));
+                                $types = $typesFromConfig;
+
+                                if (empty($types)) {
+                                    // ⚠️ Fallback di sicurezza: stessa lista del controller
+                                    $types = [
+                                        'NUOTO',
+                                        'NUOTO - MANUALE',
+                                        'RALLY START PS',
+                                        'RALLY FINE PS',
+                                        'ENDURO START PS',
+                                        'ENDURO FINE PS',
+                                        'DOWHINILL',
+                                        'SCI ALPINO',
+                                        'SCI NORDICO (FONDO)',
+                                        'ATLETICA - LYNX',
+                                        'ATLETICA MANUALE',
+                                        'CICLISMO - LYNX',
+                                        'CICLISMO MANUALE',
+                                        'ENDURO MTB',
+                                        'TROTTO',
+                                        'CONCORSO IPPICO',
+                                    ];
+                                }
+                            @endphp
+
                             <select id="type" name="type"
                                 class="form-select @error('type') is-invalid @enderror" required>
                                 <option value="" disabled {{ old('type') ? '' : 'selected' }}>Seleziona…</option>
-                                <option value="NUOTO -NUOTO SALVAMENTO"
-                                    {{ old('type') === 'NUOTO -NUOTO SALVAMENTO' ? 'selected' : '' }}>NUOTO -NUOTO
-                                    SALVAMENTO</option>
-                                <option value="SCI ALPINO – SCI NORDICO"
-                                    {{ old('type') === 'SCI ALPINO – SCI NORDICO' ? 'selected' : '' }}>SCI ALPINO – SCI
-                                    NORDICO</option>
-                                <option value="ATLETICA LEGGERA"
-                                    {{ old('type') === 'ATLETICA LEGGERA' ? 'selected' : '' }}>ATLETICA LEGGERA
-                                </option>
-                                <option value="MOTORALLY" {{ old('type') === 'MOTORALLY' ? 'selected' : '' }}>MOTORALLY
-                                </option>
-                                <option value="RALLY" {{ old('type') === 'RALLY' ? 'selected' : '' }}>RALLY</option>
-                                <option value="ENDURO MOTO" {{ old('type') === 'ENDURO MOTO' ? 'selected' : '' }}>
-                                    ENDURO MOTO</option>
-                                <option value="ENDURO MTB" {{ old('type') === 'ENDURO MTB' ? 'selected' : '' }}>ENDURO
-                                    MTB</option>
-                                <option value="MOTOCROSS" {{ old('type') === 'MOTOCROSS' ? 'selected' : '' }}>MOTOCROSS
-                                </option>
-                                <option value="CANOA" {{ old('type') === 'CANOA' ? 'selected' : '' }}>CANOA</option>
-                                <option value="CANOTTAGGIO" {{ old('type') === 'CANOTTAGGIO' ? 'selected' : '' }}>
-                                    CANOTTAGGIO</option>
-                                <option value="CICLISMO SU STRADA"
-                                    {{ old('type') === 'CICLISMO SU STRADA' ? 'selected' : '' }}>CICLISMO SU STRADA
-                                </option>
-                                <option value="CICLISMO PISTA"
-                                    {{ old('type') === 'CICLISMO PISTA' ? 'selected' : '' }}>CICLISMO PISTA</option>
-                                <option value="DOWHINILL" {{ old('type') === 'DOWHINILL' ? 'selected' : '' }}>DOWHINILL
-                                </option>
-                                <option value="AUTO REGOLARITA’"
-                                    {{ old('type') === 'AUTO REGOLARITA’' ? 'selected' : '' }}>AUTO REGOLARITA’
-                                </option>
-                                <option value="AUTO STORICHE" {{ old('type') === 'AUTO STORICHE' ? 'selected' : '' }}>
-                                    AUTO STORICHE</option>
-                                <option value="AUTOMOBILSMO CIRCUITO"
-                                    {{ old('type') === 'AUTOMOBILSMO CIRCUITO' ? 'selected' : '' }}>AUTOMOBILSMO
-                                    CIRCUITO</option>
-                                <option value="CONCORSO IPPICO"
-                                    {{ old('type') === 'CONCORSO IPPICO' ? 'selected' : '' }}>CONCORSO IPPICO</option>
-                                <option value="TROTTO" {{ old('type') === 'TROTTO' ? 'selected' : '' }}>TROTTO</option>
+                                @foreach ($types as $t)
+                                    <option value="{{ $t }}" {{ old('type') === $t ? 'selected' : '' }}>
+                                        {{ $t }}
+                                    </option>
+                                @endforeach
                             </select>
                             @error('type')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+
+                            @if (empty($typesFromConfig))
+                                <small class="text-warning d-block mt-1">
+                                    ⚠️ Tipi gara mostrati dal fallback. Esegui <code>php artisan config:clear</code> per
+                                    usare quelli da config.
+                                </small>
+                            @endif
                         </div>
                     </div>
 

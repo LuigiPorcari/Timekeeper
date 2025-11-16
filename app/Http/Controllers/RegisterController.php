@@ -18,7 +18,12 @@ class RegisterController extends Controller
             'name' => 'required|string|max:255',
             'surname' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed'
+            'password' => 'required|string|min:8|confirmed',
+            'date_of_birth' => 'required|date',
+            'domicile' => 'required|string|max:255',
+            'residence' => 'nullable|string|max:255',
+            'transfer' => 'required|boolean',
+            'auto' => 'required|boolean',
         ]);
 
         User::create([
@@ -28,13 +33,15 @@ class RegisterController extends Controller
             'date_of_birth' => $request->date_of_birth,
             'residence' => $request->residence,
             'domicile' => $request->domicile,
-            'transfer' => $request->transfer,
-            'auto' => $request->auto,
+            'transfer' => (bool) $request->transfer,
+            'auto' => (bool) $request->auto,
             'password' => Hash::make($request->password),
             'is_timekeeper' => true,
         ]);
+
         return redirect()->route('login');
     }
+
     public function showAdminRegistrationForm()
     {
         return view('auth.register-admin');
@@ -55,8 +62,8 @@ class RegisterController extends Controller
             'date_of_birth' => $request->date_of_birth,
             'residence' => $request->residence,
             'domicile' => $request->domicile,
-            'transfer' => $request->transfer,
-            'auto' => $request->auto,
+            // 'transfer' => $request->transfer,
+            // 'auto' => $request->auto,
             'password' => Hash::make($request->password),
             'is_admin' => true,
         ]);
@@ -82,8 +89,8 @@ class RegisterController extends Controller
             'date_of_birth' => $request->date_of_birth,
             'residence' => $request->residence,
             'domicile' => $request->domicile,
-            'transfer' => $request->transfer,
-            'auto' => $request->auto,
+            // 'transfer' => $request->transfer,
+            // 'auto' => $request->auto,
             'password' => Hash::make($request->password),
             'is_secretariat' => true,
         ]);
