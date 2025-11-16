@@ -9,17 +9,31 @@ use GuzzleHttp\Client as HttpClient;
 
 class BrevoMailer
 {
+    protected $apiInstance;
+
+    public function __construct()
+    {
+        $config = Configuration::getDefaultConfiguration()
+            ->setApiKey('api-key', env('BREVO_API_KEY'));
+
+        $this->apiInstance = new TransactionalEmailsApi(new HttpClient(), $config);
+    }
+
     public function sendEmail($toEmail, $subject, $view, $data = [])
     {
-        try {
-            \Mail::send($view, $data, function ($message) use ($toEmail, $subject) {
-                $message->to($toEmail)
-                        ->subject($subject);
-            });
+        $htmlContent = view($view, $data)->render();
 
-        } catch (\Exception $e) {
-            \Log::error('Errore invio SMTP: ' . $e->getMessage());
-            throw $e;
-        }
+        $sendSmtpEmail = new SendSmtpEmail([
+            'subject' => $subject,
+            'sender' => [
+                'name' => 'TIMEKEEPER',
+                'email' => config('mail.from.address'),
+            ],
+            'to' => [['email' => $toEmail]],
+            'htmlContent' => $htmlContent,
+        ]);
+
+        return $this->apiInstance->sendTransacEmail($sendSmtpEmail);
     }
 }
+
