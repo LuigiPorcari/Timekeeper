@@ -81,32 +81,8 @@
                         <div class="col-12 col-md-6">
                             <label for="type" class="form-label">Tipo gara *</label>
                             @php
-                                $typesFromConfig = array_keys(config('races.types', []));
-                                $types = $typesFromConfig;
-
-                                if (empty($types)) {
-                                    // ⚠️ Fallback di sicurezza: stessa lista del controller
-                                    $types = [
-                                        'NUOTO',
-                                        'NUOTO - MANUALE',
-                                        'RALLY START PS',
-                                        'RALLY FINE PS',
-                                        'ENDURO START PS',
-                                        'ENDURO FINE PS',
-                                        'DOWHINILL',
-                                        'SCI ALPINO',
-                                        'SCI NORDICO (FONDO)',
-                                        'ATLETICA - LYNX',
-                                        'ATLETICA MANUALE',
-                                        'CICLISMO - LYNX',
-                                        'CICLISMO MANUALE',
-                                        'ENDURO MTB',
-                                        'TROTTO',
-                                        'CONCORSO IPPICO',
-                                    ];
-                                }
+                                $types = array_keys(config('races.types', []));
                             @endphp
-
                             <select id="type" name="type"
                                 class="form-select @error('type') is-invalid @enderror" required>
                                 <option value="" disabled {{ old('type') ? '' : 'selected' }}>Seleziona…</option>
@@ -119,13 +95,6 @@
                             @error('type')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
-
-                            @if (empty($typesFromConfig))
-                                <small class="text-warning d-block mt-1">
-                                    ⚠️ Tipi gara mostrati dal fallback. Esegui <code>php artisan config:clear</code> per
-                                    usare quelli da config.
-                                </small>
-                            @endif
                         </div>
                     </div>
 

@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use App\Models\Availability;
 use Illuminate\Http\Request;
 use App\Services\BrevoMailer;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 
@@ -72,56 +73,89 @@ class AdminController extends Controller
     {
         $raceDate = $race->date_of_race;
 
-        // Normalizza stringhe (sostituisce - con _, comprime multipli, lowercase)
-        $norm = function ($val) {
-            if (!is_string($val))
-                return '';
-            $val = strtolower($val);
-            $val = str_replace('-', '_', $val);
-            $val = preg_replace('/_+/', '_', $val);
-            return trim($val, '_');
-        };
-
-        // Specializzazioni gara (possono essere array o stringhe JSON): normalizza TUTTO
+        // 1) Recupero specializzazioni gara (array o stringa JSON) e le normalizzo
         $raceSpecs = $race->specialization_of_race ?? [];
+
         if (is_string($raceSpecs)) {
             $decoded = json_decode($raceSpecs, true);
-            $raceSpecs = json_last_error() === JSON_ERROR_NONE ? $decoded : ($raceSpecs ? [$raceSpecs] : []);
+            $raceSpecs = json_last_error() === JSON_ERROR_NONE
+                ? $decoded
+                : ($raceSpecs ? [$raceSpecs] : []);
         }
-        $raceSpecs = array_map($norm, is_array($raceSpecs) ? $raceSpecs : []);
-        $raceSpecs = array_values(array_filter($raceSpecs));
 
-        $filterFn = function ($user) use ($raceSpecs, $norm) {
+        $raceSpecs = is_array($raceSpecs) ? $raceSpecs : [];
+
+        // Le specializzazioni in gara sono salvate come "tipoSlug__equipSlug".
+        // Qui estraggo SOLO la parte "equipSlug".
+        $raceSpecBase = array_values(array_filter(array_map(function ($ns) {
+            if (!is_string($ns) || $ns === '') {
+                return null;
+            }
+
+            if (str_contains($ns, '__')) {
+                [$type, $equip] = explode('__', $ns, 2);
+                return $equip; // uso solo la parte attrezzatura
+            }
+
+            // fallback: se non è namespacizzato, lo porto a slug
+            return Str::slug($ns, '_');
+        }, $raceSpecs)));
+
+        // 2) Funzione di filtro cronometristi
+        $filterFn = function ($user) use ($raceSpecBase) {
             $userSpecs = $user->specialization ?? [];
-            $userSpecs = array_map($norm, is_array($userSpecs) ? $userSpecs : []);
-            $userSpecs = array_values(array_filter($userSpecs));
+            $userSpecs = is_array($userSpecs) ? $userSpecs : [];
 
-            // jolly
-            if (in_array('co', $userSpecs, true))
+            // Jolly: se ha "co", passa sempre
+            if (in_array('co', $userSpecs, true)) {
                 return true;
+            }
 
-            // se la gara non richiede specializzazioni → tutti ok
-            if (empty($raceSpecs))
+            // Se la gara non richiede specializzazioni, non filtriamo
+            if (empty($raceSpecBase)) {
                 return true;
+            }
 
-            // confronto tra stringhe già normalizzate
-            return count(array_intersect($userSpecs, $raceSpecs)) > 0;
+            // Le specializzazioni del cronometrista sono salvate come "tipoSlug__equipSlug" (o "co").
+            // Anche qui estraggo SOLO la parte "equipSlug".
+            $userSpecBase = array_values(array_filter(array_map(function ($ns) {
+                if (!is_string($ns) || $ns === '') {
+                    return null;
+                }
+
+                if (str_contains($ns, '__')) {
+                    [$type, $equip] = explode('__', $ns, 2);
+                    return $equip;
+                }
+
+                // fallback per vecchi valori non namespacizzati
+                return Str::slug($ns, '_');
+            }, $userSpecs)));
+
+            // Match se c'è almeno una apparecchiatura in comune
+            return count(array_intersect($userSpecBase, $raceSpecBase)) > 0;
         };
 
+        // 3) Logica disponibilità (come avevi già)
         if ($race->date_end == null) {
             $timekeepers = User::where('is_timekeeper', 1)
                 ->whereHas('availabilities', function ($query) use ($raceDate) {
-                    $query->where('date_of_availability', \Illuminate\Support\Carbon::parse($raceDate)->toDateString());
+                    $query->where(
+                        'date_of_availability',
+                        Carbon::parse($raceDate)->toDateString()
+                    );
                 })
                 ->get()
                 ->filter($filterFn);
         } else {
             $period = [
-                \Illuminate\Support\Carbon::parse($race->date_of_race)->toDateString(),
-                \Illuminate\Support\Carbon::parse($race->date_end)->toDateString(),
+                Carbon::parse($race->date_of_race)->toDateString(),
+                Carbon::parse($race->date_end)->toDateString(),
             ];
-            if ($period[1] < $period[0])
+
+            if ($period[1] < $period[0]) {
                 $period = [$period[1], $period[0]];
+            }
 
             $timekeepers = User::where('is_timekeeper', 1)
                 ->whereHas('availabilities', function ($query) use ($period) {
@@ -145,123 +179,8 @@ class AdminController extends Controller
     }
     private function getRaceTypesMap(): array
     {
-        $map = config('races.types', []);
-        if (!empty($map)) {
-            return $map;
-        }
-
-        // ⚠️ Fallback di sicurezza (uguale al tuo config/races.php)
-        return [
-            // NUOTO
-            'NUOTO' => [
-                'Piastre singole',
-                'Piastre doppie',
-                'Partenza singola',
-                'Doppia partenza',
-                'Tablet',
-            ],
-            // NUOTO - MANUALE
-            'NUOTO - MANUALE' => [
-                'Cronometro master',
-                'Dorsale pulsanti',
-                'Crono manuale Timy',
-                'Tablet',
-                'Cuffie-rolle cavi',
-            ],
-            // RALLY
-            'RALLY START PS' => [
-                'Semaforo partenza',
-                'Kit cellule con S',
-                'Crono manuale',
-                'Tablet',
-                'Cuffie-rolle cavi',
-            ],
-            'RALLY FINE PS' => [
-                'Kit cellule con S',
-                'Crono manuale',
-                'PC + Tablet + Radio',
-                'Transponder',
-            ],
-            // ENDURO
-            'ENDURO START PS' => [
-                'Kit cellule con S',
-                'Crono manuale',
-                'PC + Tablet + Radio',
-                'Transponder',
-            ],
-            'ENDURO FINE PS' => [
-                'Kit cellule con S',
-                'Crono manuale',
-                'PC + Tablet + Radio',
-                'Tabelloni',
-            ],
-            // DOWHINILL / DOWNHILL
-            'DOWHINILL' => [
-                'Crono (master/REI)',
-                'Crono manuale',
-                'Orologio partenza',
-                'Radio',
-                'Tabelloni',
-            ],
-            // SCI
-            'SCI ALPINO' => [
-                'Crono (master/REI)',
-                'Crono manuale',
-                'Orologio partenza',
-                'Radio',
-                'Tabelloni',
-            ],
-            'SCI NORDICO (FONDO)' => [
-                'Crono (master/REI)',
-                'Cancellletto partenza',
-                'Cuffie',
-                'Orologio partenza',
-                'Radio',
-            ],
-            // ATLETICA
-            'ATLETICA - LYNX' => [
-                'Lynx',
-                'Cronometri (master/REI)',
-                'Kit cellule',
-                'Tabellone',
-            ],
-            'ATLETICA MANUALE' => [
-                'Crono (master/REI)',
-                'Radio',
-                'Bandelle',
-                'Tabellone',
-            ],
-            // CICLISMO
-            'CICLISMO - LYNX' => [
-                'Lynx',
-                'Cronometri (master/REI)',
-                'Bandelle',
-                'Tabellone',
-            ],
-            'CICLISMO MANUALE' => [
-                'Crono (master/REI)',
-                'Radio',
-                'Bandelle',
-                'Tabellone',
-            ],
-            // ENDURO MTB
-            'ENDURO MTB' => [
-                'Semaforo partenza',
-                'Kit cellule con S',
-                'Crono manuale',
-                'Tablet',
-                'Cuffie-rolle cavi',
-            ],
-            // ALTRI
-            'TROTTO' => [
-                'Servizi standard senza apparecchiature specifiche',
-                'Tabellone',
-            ],
-            'CONCORSO IPPICO' => [
-                'Kit cellule con S',
-                'Tabellone',
-            ],
-        ];
+        // unica fonte di verità
+        return config('races.types', []);
     }
     public function createRaceShow()
     {

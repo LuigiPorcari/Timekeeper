@@ -15,123 +15,134 @@ return [
 
     'types' => [
 
-        // NUOTO
         'NUOTO' => [
             'Piastre singole',
             'Piastre doppie',
             'Partenza singola',
             'Doppia partenza',
-            'Tablet',
         ],
 
-        // NUOTO - MANUALE
         'NUOTO - MANUALE' => [
             'Cronometro master',
             'Dorsale pulsanti',
+        ],
+
+        'RALLY START PS' => [
+            'Crono (master/REI)',
+            'Semaforo partenza',
+            'Kit cellule con Supporti',
             'Crono manuale Timy',
             'Tablet',
-            'Cuffie-rolle cavi',
         ],
 
-        // RALLY
-        'RALLY START PS' => [
-            'Semaforo partenza',
-            'Kit cellule con S',
+        'RALLY FINE PS' => [
+            'Crono (master/REI)',
+            'Kit cellule con Supporti',
             'Crono manuale',
             'Tablet',
             'Cuffie-rolle cavi',
         ],
-        'RALLY FINE PS' => [
-            'Kit cellule con S',
-            'Crono manuale',
-            'PC + Tablet + Radio',
-            'Transponder',
-        ],
 
-        // ENDURO
         'ENDURO START PS' => [
-            'Kit cellule con S',
+            'Crono (master/REI)',
+            'Kit cellule con Supporti',
             'Crono manuale',
             'PC + Tablet + Radio',
             'Transponder',
         ],
+
         'ENDURO FINE PS' => [
-            'Kit cellule con S',
+            'Crono (master/REI)',
+            'Kit cellule con Supporti',
             'Crono manuale',
             'PC + Tablet + Radio',
-            'Tabelloni',
+            'Transponder',
         ],
 
-        // DOWHINILL / DOWNHILL
         'DOWHINILL' => [
             'Crono (master/REI)',
+            'Kit cellule con Supporti',
             'Crono manuale',
+            'PC + Tablet + Radio',
+            'Tabelloni',
             'Orologio partenza',
             'Radio',
-            'Tabelloni',
         ],
 
-        // SCI
         'SCI ALPINO' => [
             'Crono (master/REI)',
+            'Kit cellule con Supporti',
             'Crono manuale',
             'Orologio partenza',
-            'Radio',
             'Tabelloni',
-        ],
-        'SCI NORDICO (FONDO)' => [
-            'Crono (master/REI)',
-            'Cancellletto partenza',
+            'PC',
+            'Cancelletto partenza',
             'Cuffie',
-            'Orologio partenza',
             'Radio',
         ],
 
-        // ATLETICA
+        'SCI NORDICO (FONDO)' => [
+            'Crono (master/REI)',
+            'Kit cellule con Supporti',
+            'Crono manuale',
+            'Orologio partenza',
+            'Radio',
+            'PC',
+            'Cancellletto partenza',
+            'Cuffie',
+        ],
+
         'ATLETICA - LYNX' => [
             'Lynx',
+            'Radio',
             'Cronometri (master/REI)',
             'Kit cellule',
             'Tabellone',
         ],
+
         'ATLETICA MANUALE' => [
             'Crono (master/REI)',
-            'Radio',
-            'Bandelle',
+            'Kit cellule con Supporti',
             'Tabellone',
         ],
 
-        // CICLISMO
         'CICLISMO - LYNX' => [
             'Lynx',
+            'Radio',
             'Cronometri (master/REI)',
             'Bandelle',
             'Tabellone',
         ],
+
         'CICLISMO MANUALE' => [
             'Crono (master/REI)',
             'Radio',
-            'Bandelle',
             'Tabellone',
+            'Bandelle',
         ],
 
-        // ENDURO MTB
         'ENDURO MTB' => [
+            'Crono (master/REI)',
             'Semaforo partenza',
-            'Kit cellule con S',
-            'Crono manuale',
+            'Kit cellule con Supporti',
+            'Crono manuale Timy',
             'Tablet',
+            'Crono manuale',
             'Cuffie-rolle cavi',
         ],
 
-        // ALTRI (in base al foglio)
-        'TROTTO' => [
-            'Servizi standard senza apparecchiature specifiche',
+        'CONCORSO IPPICO' => [
+            'Crono (master/REI)',
+            'Kit cellule con Supporti',
             'Tabellone',
         ],
-        'CONCORSO IPPICO' => [
-            'Kit cellule con S',
-            'Tabellone',
+
+        'TROTTO' => [
+            'Servizi standard senza apparecchiature specifiche',
+        ],
+
+        'HOCHEY' => [
+            'Servizi standard senza apparecchiature specifiche',
         ],
     ],
 

@@ -59,18 +59,17 @@ class RaceTempController extends Controller
 
     public function accept(RaceTemp $race)
     {
-        // 1) Recupero apparecchiature di base del tipo da config
-        $typeMap = config('races.types', []);
-        $baseEquip = $typeMap[$race->type] ?? [];
+        $typesMap = config('races.types', []);
+        $type = $race->type;
 
-        // 2) Namespacing: typeSlug__labelSlug
-        $typeSlug = Str::slug($race->type);
-        $specialization = array_values(array_map(function ($label) use ($typeSlug) {
-            $labelSlug = Str::slug($label);
-            return "{$typeSlug}__{$labelSlug}";
+        $baseEquip = $typesMap[$type] ?? [];
+        $typeSlug = Str::slug($type, '_');
+
+        $specs = array_values(array_map(function ($label) use ($typeSlug) {
+            $equipSlug = Str::slug($label, '_');
+            return "{$typeSlug}__{$equipSlug}";
         }, array_filter($baseEquip, fn($v) => filled($v))));
 
-        // 3) Crea la gara definitiva usando le apparecchiature namespacizzate
         $newRace = Race::create([
             'name' => $race->name,
             'type' => $race->type,
@@ -78,9 +77,9 @@ class RaceTempController extends Controller
             'date_end' => $race->date_end,
             'place' => $race->place,
             'ente_fatturazione' => $race->ente_fatturazione,
-            'programma_allegato' => $race->programma_allegato, // già su 'public'
+            'programma_allegato' => $race->programma_allegato,
             'note' => $race->note,
-            'specialization_of_race' => $specialization,
+            'specialization_of_race' => $specs,
         ]);
 
         // 4) Notifica

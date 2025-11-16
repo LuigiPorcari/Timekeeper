@@ -37,6 +37,12 @@
                                     <h2 id="info-gara" class="h5 mb-0">Informazioni sulla gara</h2>
                                 </div>
 
+                                @php
+                                    // tipi gara presi dal config
+                                    $types = array_keys(config('races.types', []));
+                                    $oldType = old('type', $race->type);
+                                @endphp
+
                                 {{-- Nome --}}
                                 <div class="mb-3">
                                     <label for="name" class="form-label">Nome della gara</label>
@@ -84,58 +90,19 @@
                                     @enderror
                                 </div>
 
-                                {{-- Tipo gara --}}
+                                {{-- Tipo gara (dal config) --}}
                                 <div class="mt-3">
                                     <label for="type" class="form-label">Tipo gara</label>
                                     <select id="type" name="type"
                                         class="form-select @error('type') is-invalid @enderror" required>
-                                        @php $oldType = old('type', $race->type); @endphp
                                         <option value="" disabled {{ $oldType ? '' : 'selected' }}>Seleziona…
                                         </option>
-                                        <option value="NUOTO -NUOTO SALVAMENTO"
-                                            {{ $oldType === 'NUOTO -NUOTO SALVAMENTO' ? 'selected' : '' }}>NUOTO -NUOTO
-                                            SALVAMENTO</option>
-                                        <option value="SCI ALPINO – SCI NORDICO"
-                                            {{ $oldType === 'SCI ALPINO – SCI NORDICO' ? 'selected' : '' }}>SCI ALPINO
-                                            – SCI NORDICO</option>
-                                        <option value="ATLETICA LEGGERA"
-                                            {{ $oldType === 'ATLETICA LEGGERA' ? 'selected' : '' }}>ATLETICA LEGGERA
-                                        </option>
-                                        <option value="MOTORALLY" {{ $oldType === 'MOTORALLY' ? 'selected' : '' }}>
-                                            MOTORALLY</option>
-                                        <option value="RALLY" {{ $oldType === 'RALLY' ? 'selected' : '' }}>RALLY
-                                        </option>
-                                        <option value="ENDURO MOTO" {{ $oldType === 'ENDURO MOTO' ? 'selected' : '' }}>
-                                            ENDURO MOTO</option>
-                                        <option value="ENDURO MTB" {{ $oldType === 'ENDURO MTB' ? 'selected' : '' }}>
-                                            ENDURO MTB</option>
-                                        <option value="MOTOCROSS" {{ $oldType === 'MOTOCROSS' ? 'selected' : '' }}>
-                                            MOTOCROSS</option>
-                                        <option value="CANOA" {{ $oldType === 'CANOA' ? 'selected' : '' }}>CANOA
-                                        </option>
-                                        <option value="CANOTTAGGIO" {{ $oldType === 'CANOTTAGGIO' ? 'selected' : '' }}>
-                                            CANOTTAGGIO</option>
-                                        <option value="CICLISMO SU STRADA"
-                                            {{ $oldType === 'CICLISMO SU STRADA' ? 'selected' : '' }}>CICLISMO SU
-                                            STRADA</option>
-                                        <option value="CICLISMO PISTA"
-                                            {{ $oldType === 'CICLISMO PISTA' ? 'selected' : '' }}>CICLISMO PISTA
-                                        </option>
-                                        <option value="DOWHINILL" {{ $oldType === 'DOWHINILL' ? 'selected' : '' }}>
-                                            DOWHINILL</option>
-                                        <option value="AUTO REGOLARITA’"
-                                            {{ $oldType === 'AUTO REGOLARITA’' ? 'selected' : '' }}>AUTO REGOLARITA’
-                                        </option>
-                                        <option value="AUTO STORICHE"
-                                            {{ $oldType === 'AUTO STORICHE' ? 'selected' : '' }}>AUTO STORICHE</option>
-                                        <option value="AUTOMOBILSMO CIRCUITO"
-                                            {{ $oldType === 'AUTOMOBILSMO CIRCUITO' ? 'selected' : '' }}>AUTOMOBILSMO
-                                            CIRCUITO</option>
-                                        <option value="CONCORSO IPPICO"
-                                            {{ $oldType === 'CONCORSO IPPICO' ? 'selected' : '' }}>CONCORSO IPPICO
-                                        </option>
-                                        <option value="TROTTO" {{ $oldType === 'TROTTO' ? 'selected' : '' }}>TROTTO
-                                        </option>
+                                        @foreach ($types as $t)
+                                            <option value="{{ $t }}"
+                                                {{ $oldType === $t ? 'selected' : '' }}>
+                                                {{ $t }}
+                                            </option>
+                                        @endforeach
                                     </select>
                                     @error('type')
                                         <div class="invalid-feedback">{{ $message }}</div>

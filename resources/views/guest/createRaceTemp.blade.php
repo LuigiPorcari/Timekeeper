@@ -54,26 +54,6 @@
                                 <label for="type" class="form-label">Tipo gara *</label>
                                 @php
                                     $types = array_keys(config('races.types', []));
-                                    if (empty($types)) {
-                                        $types = [
-                                            'NUOTO',
-                                            'NUOTO - MANUALE',
-                                            'RALLY START PS',
-                                            'RALLY FINE PS',
-                                            'ENDURO START PS',
-                                            'ENDURO FINE PS',
-                                            'DOWHINILL',
-                                            'SCI ALPINO',
-                                            'SCI NORDICO (FONDO)',
-                                            'ATLETICA - LYNX',
-                                            'ATLETICA MANUALE',
-                                            'CICLISMO - LYNX',
-                                            'CICLISMO MANUALE',
-                                            'ENDURO MTB',
-                                            'TROTTO',
-                                            'CONCORSO IPPICO',
-                                        ];
-                                    }
                                 @endphp
                                 <select id="type" name="type"
                                     class="form-select @error('type') is-invalid @enderror" required>
