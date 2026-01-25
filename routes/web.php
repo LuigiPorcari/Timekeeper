@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ReportEntry;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\LoginController;
@@ -13,7 +14,9 @@ use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\RecordAttachmentController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 
-
+Route::bind('entry', function ($value) {
+    return ReportEntry::findOrFail($value);
+});
 
 // Route::get('/admin/create/race', [AdminController::class, 'createRaceShow'])->name('admin.createRace.form');
 // Route::post('/admin/race/create', [AdminController::class, 'storeRace'])->name('race.store');
@@ -26,7 +29,7 @@ Route::delete('/admin/race-temp/{race}/reject', [RaceTempController::class, 'rej
 
 
 //!ROTTE CONFERMA RECORDS
-Route::post('/records/{record}/confirm', [TimekeeperController::class, 'confirm'])->name('records.confirm');
+Route::post('/records/{entry}/confirm', [TimekeeperController::class, 'confirm'])->name('records.confirm');
 Route::post('/races/{race}/records/confirm-all', [TimekeeperController::class, 'confirmAll'])->name('records.confirm.all');
 
 
@@ -76,9 +79,9 @@ Route::post('/admin/availability/store', [AdminController::class, 'storeAvailabi
 //!ROTTE TIMEKEEPER
 Route::get('/races/{race}/records', [TimekeeperController::class, 'manage'])->name('records.manage');
 Route::post('/races/{race}/records', [TimekeeperController::class, 'store'])->name('records.store');
-Route::put('/records/{record}', [TimekeeperController::class, 'update'])->name('records.update');
-Route::get('/records/{record}/edit', [TimekeeperController::class, 'edit'])->name('records.edit');
-Route::delete('/records/{record}', [TimekeeperController::class, 'destroy'])->name('records.destroy');
+Route::put('/records/{entry}', [TimekeeperController::class, 'update'])->name('records.update');
+Route::get('/records/{entry}/edit', [TimekeeperController::class, 'edit'])->name('records.edit');
+Route::delete('/records/{entry}', [TimekeeperController::class, 'destroy'])->name('records.destroy');
 Route::get('/timekeeper/dashboard', [TimekeeperController::class, 'dashboard'])->name('timekeeper.dashboard');
 Route::get('/timekeeper/availability', [TimekeeperController::class, 'showForUser'])->name('availability.show');
 Route::get('/timekeeper/races', [TimekeeperController::class, 'racesListShow'])->name('timekeeper.racesList');
@@ -101,6 +104,64 @@ Route::middleware(['auth'])
         Route::get('/races/{race}', [SecretariatController::class, 'racesShow'])->name('races.show');
         Route::get('/timekeepers', [SecretariatController::class, 'timekeepersIndex'])->name('timekeepers.index');
         Route::get('/timekeepers/{user}', [SecretariatController::class, 'timekeepersShow'])->name('timekeepers.show'); // 👈 nuovo
-        Route::put('/records/{record}', [SecretariatController::class, 'recordUpdate'])->name('records.update');
+        Route::get('/races/{race}/report', [SecretariatController::class, 'raceReport'])
+            ->name('races.report');
+        Route::post('/races/{race}/admin-settings', [SecretariatController::class, 'saveRaceAdminSettings'])
+            ->name('races.adminSettings.save');
+        Route::post('/races/{race}/day-admin', [SecretariatController::class, 'saveDayAdmin'])
+            ->name('races.dayAdmin.save');
     });
+
+// Salva/Modifica CRONO (stesso endpoint, upsert)
+Route::post('/races/{race}/report-entry', [TimekeeperController::class, 'saveEntry'])
+    ->name('records.entry.save');
+
+// Salva/Modifica DSC day (stesso endpoint, upsert)
+// Route::post('/races/{race}/dsc-day', [TimekeeperController::class, 'saveDscDay'])
+//     ->name('records.dscDay.save');
+
+// // Conferma DSC day (per giorno + crono)
+// Route::post('/races/{race}/dsc-day/confirm', [TimekeeperController::class, 'confirmDscDay'])
+//     ->name('records.dscDay.confirm');
+
+// Salva/Modifica DSC gara (una sola riga)
+Route::post('/races/{race}/dsc-race', [TimekeeperController::class, 'saveDscRace'])
+    ->name('records.dscRace.save');
+
+// Conferma DSC gara
+Route::post('/races/{race}/dsc-race/confirm', [TimekeeperController::class, 'confirmDscRace'])
+    ->name('records.dscRace.confirm');
+
+// DSC GIORNALIERO (solo orari, vale per tutti)
+Route::post('/races/{race}/dsc-day-hours', [TimekeeperController::class, 'saveDscDayHours'])
+    ->name('records.dscDayHours.save');
+
+// Conferma ORARI DSC (per singola giornata)
+Route::post('/races/{race}/dsc-day-hours/confirm', [TimekeeperController::class, 'confirmDscDayHours'])
+    ->name('records.dscDayHours.confirm');
+
+Route::post('/races/{race}/report-entry/confirm', [TimekeeperController::class, 'confirmMyEntry'])
+    ->name('records.entry.confirm');
+
+Route::get('/secretariat/races/{race}/report-full', [SecretariatController::class, 'raceReportFull'])
+    ->name('secretariat.races.reportFull');
+
+
+Route::middleware(['auth'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/races/{race}/report-full', [AdminController::class, 'raceReportFull'])
+            ->name('races.report_full');
+
+        Route::get('/races/{race}/report-full/{user}', [AdminController::class, 'raceReportFullForTimekeeper'])
+            ->name('races.report_full_timekeeper');
+
+        Route::get('/timekeeper/{user}/report-full-stack', [AdminController::class, 'timekeeperReportFullStack'])
+            ->name('timekeeperReportFullStack');
+    });
+
+    Route::post('/races/{race}/report-entry/delete', [TimekeeperController::class, 'deleteMyEntry'])
+    ->name('records.entry.delete');
+
 

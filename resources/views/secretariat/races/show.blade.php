@@ -356,7 +356,9 @@
                     </table>
                 </div>
             </div>
-
+            <a href="{{ route('secretariat.races.report', $race) }}" class="btn btn-primary">
+                Vai al Report Gara
+            </a>
             <div class="card-footer d-flex justify-content-end">
                 <a href="{{ route('secretariat.races.index') }}" class="btn btn-secondary">Torna all’elenco</a>
             </div>

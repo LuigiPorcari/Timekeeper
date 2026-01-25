@@ -11,7 +11,15 @@ use Illuminate\Http\Request;
 use App\Services\BrevoMailer;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use App\Services\ReportCalculator;
+use App\Services\RaceReportFullBuilder;
 use Illuminate\Support\Facades\Storage;
+use App\Models\ReportEntry;
+use App\Models\ReportDayAdmin;
+use App\Models\ReportDayDsc;
+use App\Models\ReportRaceDsc;
+use App\Models\ReportAdminRaceSettings;
+
 
 class AdminController extends Controller
 {
@@ -366,7 +374,7 @@ class AdminController extends Controller
 
         $leader = $race->users->firstWhere('pivot.is_leader', true);
 
-        // dati comuni alle mail
+        
         $mailBaseData = [
             'raceName' => $race->name,
             'raceStart' => $race->date_of_race,
@@ -543,12 +551,82 @@ class AdminController extends Controller
 
     public function destroyRace(Race $race)
     {
-        // Elimina i record associati
-        $race->records()->delete();
-        // Elimina i collegamenti con i cronometristi
+        // 1) Elimina i dati report collegati alla gara (nuovo sistema)
+        ReportEntry::where('race_id', $race->id)->delete();
+        ReportDayAdmin::where('race_id', $race->id)->delete();
+        ReportDayDsc::where('race_id', $race->id)->delete();
+        ReportRaceDsc::where('race_id', $race->id)->delete();
+        ReportAdminRaceSettings::where('race_id', $race->id)->delete();
+
+        // 2) Elimina i collegamenti con i cronometristi (pivot)
         $race->users()->detach();
-        // Ora puoi eliminare la gara
+
+        // 3) Elimina eventuale allegato dal filesystem
+        if (!empty($race->programma_allegato) && Storage::disk('public')->exists($race->programma_allegato)) {
+            Storage::disk('public')->delete($race->programma_allegato);
+        }
+
+        // 4) Elimina la gara
         $race->delete();
-        return redirect()->route('admin.racesList')->with('success', 'Gara eliminata con successo.');
+
+        return redirect()
+            ->route('admin.racesList')
+            ->with('success', 'Gara eliminata con successo.');
     }
+
+
+    public function raceReportFull(Race $race, ReportCalculator $calc, RaceReportFullBuilder $builder)
+    {
+        $data = $builder->build($race, $calc);
+
+        // ✅ link di ritorno per admin (rotta ESISTENTE)
+        $data['backUrl'] = route('admin.racesList');
+
+        return view('secretariat.races.report_full', $data);
+    }
+
+    public function raceReportFullForTimekeeper(
+        Race $race,
+        User $user,
+        ReportCalculator $calc,
+        RaceReportFullBuilder $builder
+    ) {
+        $data = $builder->buildForTimekeeper($race, $user->id, $calc);
+
+        // ✅ link di ritorno per admin verso report del crono (questa esiste: admin.timekeeperReport)
+        $data['backUrl'] = route('admin.timekeeperReport', ['user' => $user->id]);
+
+        return view('secretariat.races.report_full', $data);
+    }
+
+    public function timekeeperReportFullStack(
+        User $user,
+        ReportCalculator $calc,
+        RaceReportFullBuilder $builder
+    ) {
+        // Prendi le gare dell’utente (scegli ordinamento che preferisci)
+        $races = $user->races()
+            ->orderByDesc('date_of_race')
+            ->get();
+
+        // Build “full” per ogni gara
+        $reports = $races->map(function ($race) use ($user, $calc, $builder) {
+            $data = $builder->buildForTimekeeper($race, $user->id, $calc);
+
+            // id univoco per evitare conflitti DOM tra tabelle
+            $data['uid'] = 'r' . $race->id . '_u' . $user->id;
+
+            // opzionale: back url verso il report “lista gare del crono”
+            $data['backUrl'] = route('admin.timekeeperReport', ['user' => $user->id]);
+
+            return $data;
+        });
+
+        return view('admin.timekeeper_report_full_stack', [
+            'user' => $user,
+            'reports' => $reports,
+        ]);
+    }
+
+
 }

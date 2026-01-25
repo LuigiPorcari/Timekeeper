@@ -10,6 +10,17 @@ use Illuminate\Http\Request;
 use App\Services\BrevoMailer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Models\ReportEntry;
+use App\Models\ReportDayDsc;
+use App\Models\ReportDayAdmin;
+use App\Services\ReportCalculator;
+use App\Models\ReportAdminRaceSettings;
+use Carbon\Carbon;
+use App\Models\ReportRaceDsc;
+use App\Services\RaceReportFullBuilder;
+
+
+
 
 class TimekeeperController extends Controller
 {
@@ -136,278 +147,722 @@ class TimekeeperController extends Controller
         return view('timekeeper.raceList', compact('timekeeperRaces'));
     }
 
-    public function manage(Race $race)
+
+    public function manage(Race $race, ReportCalculator $calc, RaceReportFullBuilder $builder)
     {
         $user = auth()->user();
+        $isLeader = $user->isLeaderOf($race);
 
-        if ($user->isLeaderOf($race)) {
-            $records = $race->records()->with('user', 'attachments')->get(); // tutti i record
-        } else {
-            $records = $race->records()->where('user_id', $user->id)->with('attachments')->get(); // solo i propri
+        // Cronometristi assegnati alla gara
+        $timekeepers = $race->users()
+            ->select('users.id', 'users.name', 'users.surname', 'users.domicile')
+            ->orderBy('surname')
+            ->get();
+
+        // Entry CRONO: 1 per gara per crono
+        $entriesQuery = ReportEntry::query()
+            ->where('race_id', $race->id)
+            ->with(['user', 'attachments']);
+
+        // Se NON è DSC, mi serve solo la sua entry per il form
+        if (!$isLeader) {
+            $entriesQuery->where('user_id', $user->id);
         }
 
-        return view('timekeeper.records.manage', compact('race', 'records'));
+        $entries = $entriesQuery->get()->keyBy('user_id');
+
+        // DSC gara (una volta per gara)
+        $dscRace = ReportRaceDsc::where('race_id', $race->id)->first();
+
+        // Giorni gara (servono per DSC orari giornalieri)
+        $start = Carbon::parse($race->date_of_race)->startOfDay();
+        $end = $race->date_end ? Carbon::parse($race->date_end)->startOfDay() : $start->copy();
+        if ($end->lt($start)) {
+            [$start, $end] = [$end, $start];
+        }
+
+        $days = [];
+        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+            $days[] = $d->format('Y-m-d');
+        }
+
+        $selectedDay = request('day') ?? ($days[0] ?? null);
+
+        // DSC orari per giornata (UNA riga per race+day)
+        $dscDayHours = null;
+        if ($selectedDay) {
+            $dscDayHours = ReportDayDsc::where('race_id', $race->id)
+                ->where('work_date', $selectedDay)
+                ->first();
+        }
+
+        // Settings gara
+        $settings = ReportAdminRaceSettings::where('race_id', $race->id)->first();
+
+        // Admin day (se serve van_cost): prendo la prima disponibile
+        $adminAny = ReportDayAdmin::where('race_id', $race->id)
+            ->orderBy('work_date')
+            ->first();
+
+        // Righe tabella "snella" (quella che usi nel riepilogo DSC)
+        $targetUsers = $isLeader ? $timekeepers : $timekeepers->where('id', $user->id);
+
+        $rows = $targetUsers->map(function ($tk) use ($race, $entries, $dscRace, $adminAny, $settings, $calc) {
+            $entry = $entries->get($tk->id);
+
+            // Se non esiste, creo un oggetto "vuoto" (non salvato) per evitare errori in view
+            if (!$entry) {
+                $entry = new ReportEntry([
+                    'race_id' => $race->id,
+                    'user_id' => $tk->id,
+                    'km' => null,
+                    'pedaggi' => null,
+                    'vitto' => null,
+                    'alloggio' => null,
+                    'spese_varie' => null,
+                    'note' => null,
+                    'confirmed' => false,
+                ]);
+                $entry->setRelation('user', $tk);
+                $entry->setRelation('attachments', collect());
+            }
+
+            // Calcolo sistema: usa DSC gara (per tutti)
+            $sys = $calc->computeRowForDay($race, $entry, $dscRace, $adminAny, $settings);
+
+            return [
+                'user' => $tk,
+                'entry' => $entry,
+                'sys' => $sys,
+            ];
+        });
+
+        // ==========================================================
+        // DATI FULL: SOLO per crono NON DSC
+        // ==========================================================
+        $fullRows = null;
+        $fullDays = null;
+        $raceDaysCount = null;
+
+        if (!$isLeader) {
+            // buildForTimekeeper produce la struttura "full" (rows, days, ecc.)
+            $full = $builder->buildForTimekeeper($race, $user->id, $calc);
+
+            $fullRows = $full['rows'] ?? [];
+            $fullDays = $full['days'] ?? [];
+            $raceDaysCount = $full['raceDaysCount'] ?? (is_array($fullDays) ? count($fullDays) : 1);
+
+            // se il builder produce versioni più "complete" di dsc/settings, le uso
+            if (array_key_exists('dscRace', $full) && $full['dscRace']) {
+                $dscRace = $full['dscRace'];
+            }
+            if (array_key_exists('settings', $full) && $full['settings']) {
+                $settings = $full['settings'];
+            }
+        }
+
+        return view('timekeeper.records.manage', [
+            'race' => $race,
+            'isLeader' => $isLeader,
+
+            // crono
+            'timekeepers' => $timekeepers,
+            'entries' => $entries,
+            'rows' => $rows,
+
+            // DSC
+            'dscRace' => $dscRace,
+
+            // DSC ore giornaliere
+            'days' => $days,
+            'selectedDay' => $selectedDay,
+            'dscDayHours' => $dscDayHours,
+
+            // settings
+            'settings' => $settings,
+
+            // FULL (solo se NON leader; la view gestisce anche null)
+            'fullRows' => $fullRows,
+            'fullDays' => $fullDays,
+            'raceDaysCount' => $raceDaysCount,
+        ]);
     }
+
+
+
+
+
+    public function saveDscDay(Request $request, Race $race)
+    {
+        // dd('saveDscDay HIT', $request->all());
+        $user = auth()->user();
+        if (!$user->isLeaderOf($race)) {
+            return back()->with('error', 'Non hai i permessi per modificare i dati DSC.');
+        }
+
+        $selectedDay = $request->input('selected_day') ?? $request->input('day');
+        if (!$selectedDay) {
+            return back()->with('error', 'Seleziona prima una giornata.');
+        }
+
+        $start = Carbon::parse($race->date_of_race)->toDateString();
+        $end = $race->date_end ? Carbon::parse($race->date_end)->toDateString() : $start;
+        if ($end < $start) {
+            [$start, $end] = [$end, $start];
+        }
+
+        $validated = $request->validate([
+            'target_user_id' => 'required|exists:users,id',
+
+            'morning_start' => 'nullable|date_format:H:i',
+            'morning_end' => 'nullable|date_format:H:i',
+            'afternoon_start' => 'nullable|date_format:H:i',
+            'afternoon_end' => 'nullable|date_format:H:i',
+
+            'van_needed' => 'nullable|boolean',
+            'missed_meals' => 'nullable|integer|min:0|max:50',
+            'apparecchiature' => 'nullable|array',
+            'apparecchiature.*' => 'string',
+        ]);
+
+        $workDate = Carbon::parse($selectedDay)->toDateString();
+        if ($workDate < $start || $workDate > $end) {
+            return back()->with('error', 'La giornata selezionata non rientra nel periodo della gara.');
+        }
+
+        $targetId = (int) $validated['target_user_id'];
+
+        $isAssigned = $race->users()->where('users.id', $targetId)->exists();
+        if (!$isAssigned) {
+            return back()->with('error', 'Il cronometrista selezionato non è assegnato a questa gara.');
+        }
+
+        $existing = ReportDayDsc::where('race_id', $race->id)
+            ->where('user_id', $targetId)
+            ->where('work_date', $workDate)
+            ->first();
+
+        if ($existing && $existing->confirmed) {
+            return back()->with('error', 'I dati DSC di questo giorno sono confermati e non possono essere modificati.');
+        }
+
+        ReportDayDsc::updateOrCreate(
+            [
+                'race_id' => $race->id,
+                'user_id' => $targetId,
+                'work_date' => $workDate,
+            ],
+            [
+                'morning_start' => $validated['morning_start'] ?? null,
+                'morning_end' => $validated['morning_end'] ?? null,
+                'afternoon_start' => $validated['afternoon_start'] ?? null,
+                'afternoon_end' => $validated['afternoon_end'] ?? null,
+                'van_needed' => (bool) ($validated['van_needed'] ?? false),
+                'missed_meals' => (int) ($validated['missed_meals'] ?? 0),
+                'apparecchiature' => $validated['apparecchiature'] ?? [],
+            ]
+        );
+
+        // ✅ DEBUG: verifica cosa c’è davvero in DB dopo il salvataggio
+        $check = ReportDayDsc::where('race_id', $race->id)
+            ->where('user_id', $targetId)
+            ->where('work_date', $workDate)
+            ->first();
+
+        logger()->info('DSC SAVED', [
+            'race_id' => $race->id,
+            'user_id' => $targetId,
+            'work_date' => $workDate,
+            'row' => $check?->toArray(),
+        ]);
+
+        return redirect()
+            ->route('records.manage', [
+                'race' => $race->id,
+                'day' => $workDate,
+                'dsc_user' => $targetId,
+            ])
+            ->with('success', 'Dati DSC salvati/modificati per la giornata selezionata.');
+    }
+
+
+
+
 
     public function store(Request $request, Race $race)
     {
-        // Se ci sono record confermati, blocca l'inserimento
-        if ($race->records()->where('confirmed', true)->exists()) {
-            return back()->with('error', 'Non è possibile aggiungere nuovi record: sono già stati confermati.');
+        $user = auth()->user();
+
+        // blocco inserimenti se confermato
+        $existing = ReportEntry::where('race_id', $race->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($existing && $existing->confirmed) {
+            return back()->with('error', 'Il tuo report per questa gara è già confermato e non può essere modificato.');
         }
 
-        $isLeader = auth()->user()->isLeaderOf($race);
-        $allowedSpecs = is_array($race->specialization_of_race) ? $race->specialization_of_race : [];
+        $validated = $request->validate([
+            'km' => 'nullable|numeric|min:0',
+            'pedaggi' => 'nullable|numeric|min:0',
+            'vitto' => 'nullable|numeric|min:0',
+            'alloggio' => 'nullable|numeric|min:0',
+            'spese_varie' => 'nullable|numeric|min:0',
+            'note' => 'nullable|string',
+            'attachments.*' => 'nullable|file|max:10240',
+        ]);
 
-        // Regole base
-        $rules = [
-            'type' => 'required|string|in:FC,CM,CP',
-            // €/Km è inseribile SOLO dal DSC: per i non-DSC NON validiamo questo campo
-            'daily_service' => 'nullable|integer',
-            'special_service' => 'nullable|integer',
-            'rate_documented' => 'nullable|string',
+        $entry = ReportEntry::updateOrCreate(
+            ['race_id' => $race->id, 'user_id' => $user->id],
+            [
+                'km' => $validated['km'] ?? null,
+                'pedaggi' => $validated['pedaggi'] ?? null,
+                'vitto' => $validated['vitto'] ?? null,
+                'alloggio' => $validated['alloggio'] ?? null,
+                'spese_varie' => $validated['spese_varie'] ?? null,
+                'note' => $validated['note'] ?? null,
+            ]
+        );
 
-            'km_documented' => 'nullable|numeric',
-            'travel_ticket_documented' => 'nullable|numeric',
-            'food_documented' => 'nullable|numeric',
-            'accommodation_documented' => 'nullable|numeric',
-            'various_documented' => 'nullable|numeric',
-
-            'description' => 'nullable|string',
-        ];
-
-        if ($isLeader) {
-            $rules['euroKM'] = ['nullable', 'regex:/^\d{1,6}([,.]\d{1,2})?$/'];
-            $rules['food_not_documented'] = 'nullable|numeric';
-            $rules['daily_allowances_not_documented'] = 'nullable|numeric';
-            $rules['special_daily_allowances_not_documented'] = 'nullable|numeric';
-            $rules['transport_mode'] = 'required|in:trasportato,km';
-            $rules['apparecchiature'] = 'nullable|array';
-            $rules['apparecchiature.*'] = ['string', \Illuminate\Validation\Rule::in($allowedSpecs)];
-        }
-
-        $validated = $request->validate($rules);
-
-        // €/Km: SOLO DSC può impostarlo; per altri rimane null (si usa default 0.36)
-        $euroKM = ($isLeader && $request->filled('euroKM'))
-            ? (float) str_replace(',', '.', $request->input('euroKM'))
-            : null;
-
-        $ratePerKm = $euroKM !== null ? $euroKM : 0.36;
-
-        // Trasporto & km effettivi
-        $transportMode = $isLeader ? ($request->input('transport_mode', 'km')) : 'km';
-        $kmEffective = ($isLeader && $transportMode === 'km')
-            ? (float) ($request->km_documented ?? 0)
-            : 0;
-
-        $amountDocumented = round($kmEffective * $ratePerKm, 2);
-
-        // Totale
-        $total = $amountDocumented
-            + (float) ($request->travel_ticket_documented ?? 0)
-            + (float) ($request->food_documented ?? 0)
-            + (float) ($request->accommodation_documented ?? 0)
-            + (float) ($request->various_documented ?? 0)
-            + (float) ($request->food_not_documented ?? 0);
-
-        $data = [
-            'type' => $validated['type'],
-            'euroKM' => $euroKM,
-
-            'daily_service' => $request->daily_service,
-            'special_service' => $request->special_service,
-            'rate_documented' => $request->rate_documented,
-
-            'km_documented' => $kmEffective,
-            'amount_documented' => $amountDocumented,
-
-            'travel_ticket_documented' => $request->travel_ticket_documented,
-            'food_documented' => $request->food_documented,
-            'accommodation_documented' => $request->accommodation_documented,
-            'various_documented' => $request->various_documented,
-
-            'total' => round($total, 2),
-            'description' => $request->description,
-
-            'user_id' => auth()->id(),
-            'race_id' => $race->id,
-
-            'transport_mode' => $transportMode,
-        ];
-
-        if ($isLeader) {
-            $data['food_not_documented'] = $request->food_not_documented;
-            $data['daily_allowances_not_documented'] = $request->daily_allowances_not_documented;
-            $data['special_daily_allowances_not_documented'] = $request->special_daily_allowances_not_documented;
-            $data['apparecchiature'] = $request->input('apparecchiature', []);
-        }
-
-        $record = Record::create($data);
-
-        // Allegati multipli (se presenti)
+        // Allegati (link diretto a storage)
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                $path = $file->store('attachments', 'public');
+                $path = $file->store('report_attachments', 'public');
 
-                $record->attachments()->create([
+                $entry->attachments()->create([
                     'file_path' => $path,
                     'original_name' => $file->getClientOriginalName(),
                 ]);
             }
         }
 
-        return redirect()->route('records.manage', $race)
-            ->with('success', 'Record aggiunto con successo.');
+        return redirect()
+            ->route('records.manage', ['race' => $race->id, 'day' => $request->input('day') ?? request('day')])
+            ->with('success', 'Report crono salvato con successo.');
+
     }
 
-    public function edit(Record $record)
+    public function edit(ReportEntry $entry)
     {
         $user = auth()->user();
 
-        if ($user->id !== $record->user_id || $record->confirmed) {
+        if ($entry->user_id !== $user->id) {
             return redirect()
-                ->route('records.manage', $record->race)
-                ->with('error', 'Non hai i permessi per modificare questo record.');
+                ->route('records.manage', ['race' => $entry->race_id, 'day' => request('day')])
+                ->with('error', 'Non hai i permessi per modificare questo report.');
         }
 
-        return view('timekeeper.records.edit', compact('record'));
+        if ($entry->confirmed) {
+            return redirect()
+                ->route('records.manage', ['race' => $entry->race_id, 'day' => request('day')])
+                ->with('error', 'Questo report è stato confermato e non può essere modificato.');
+        }
+
+        return view('timekeeper.records.edit', [
+            'entry' => $entry->load('race', 'attachments'),
+            'race' => $entry->race,
+            'day' => request('day'),
+        ]);
     }
 
-    public function update(Request $request, Record $record)
-    {
-        if ($record->confirmed) {
-            return back()->with('error', 'Questo record è stato confermato e non può essere modificato.');
-        }
-
-        if ($record->user_id !== auth()->id()) {
-            return back()->with('error', 'Non hai i permessi per modificare questo record.');
-        }
-
-        $race = $record->race;
-        $isLeader = auth()->user()->isLeaderOf($race);
-        $allowedSpecs = is_array($race->specialization_of_race) ? $race->specialization_of_race : [];
-
-        // Regole base
-        $rules = [
-            'type' => 'required|string|in:FC,CM,CP',
-            // €/Km solo DSC
-            'daily_service' => 'nullable|integer',
-            'special_service' => 'nullable|integer',
-            'rate_documented' => 'nullable|string',
-
-            'km_documented' => 'nullable|numeric',
-            'travel_ticket_documented' => 'nullable|numeric',
-            'food_documented' => 'nullable|numeric',
-            'accommodation_documented' => 'nullable|numeric',
-            'various_documented' => 'nullable|numeric',
-
-            'description' => 'nullable|string',
-        ];
-
-        if ($isLeader) {
-            $rules['euroKM'] = ['nullable', 'regex:/^\d{1,6}([,.]\d{1,2})?$/'];
-            $rules['food_not_documented'] = 'nullable|numeric';
-            $rules['daily_allowances_not_documented'] = 'nullable|numeric';
-            $rules['special_daily_allowances_not_documented'] = 'nullable|numeric';
-            $rules['transport_mode'] = 'required|in:trasportato,km';
-            $rules['apparecchiature'] = 'nullable|array';
-            $rules['apparecchiature.*'] = ['string', \Illuminate\Validation\Rule::in($allowedSpecs)];
-        }
-
-        $validated = $request->validate($rules);
-
-        // €/Km: solo DSC può modificarlo; altrimenti manteniamo quello già salvato
-        $euroKM = ($isLeader && $request->filled('euroKM'))
-            ? (float) str_replace(',', '.', $request->input('euroKM'))
-            : $record->euroKM;
-
-        $ratePerKm = $euroKM !== null ? $euroKM : 0.36;
-
-        // Trasporto & km effettivi
-        $transportMode = $isLeader
-            ? ($request->input('transport_mode', $record->transport_mode ?? 'km'))
-            : ($record->transport_mode ?? 'km');
-
-        $kmEffective = ($isLeader && $transportMode === 'km')
-            ? (float) ($request->km_documented ?? 0)
-            : ($transportMode === 'km' ? ($record->km_documented ?? 0) : 0);
-
-        $amountDocumented = round($kmEffective * $ratePerKm, 2);
-
-        $update = [
-            'type' => $validated['type'],
-            'euroKM' => $euroKM,
-
-            'daily_service' => $request->daily_service,
-            'special_service' => $request->special_service,
-            'rate_documented' => $request->rate_documented,
-
-            'km_documented' => $kmEffective,
-            'amount_documented' => $amountDocumented,
-
-            'travel_ticket_documented' => $request->travel_ticket_documented,
-            'food_documented' => $request->food_documented,
-            'accommodation_documented' => $request->accommodation_documented,
-            'various_documented' => $request->various_documented,
-
-            'description' => $request->description,
-            'transport_mode' => $transportMode,
-        ];
-
-        if ($isLeader) {
-            $update['food_not_documented'] = $request->food_not_documented;
-            $update['daily_allowances_not_documented'] = $request->daily_allowances_not_documented;
-            $update['special_daily_allowances_not_documented'] = $request->special_daily_allowances_not_documented;
-            $update['apparecchiature'] = $request->input('apparecchiature', []);
-        }
-
-        $record->update($update);
-
-        return redirect()->route('records.manage', $record->race)->with('success', 'Record aggiornato con successo.');
-    }
-
-    public function destroy(Record $record)
-    {
-        if ($record->confirmed) {
-            return back()->with('error', 'Questo record è stato confermato e non può essere eliminato.');
-        }
-
-        if ($record->user_id !== auth()->id()) {
-            return back()->with('error', 'Non hai i permessi per eliminare questo record.');
-        }
-
-        $record->delete();
-        return back()->with('success', 'Record eliminato con successo.');
-    }
-
-    public function confirm(Record $record)
+    public function update(Request $request, ReportEntry $entry)
     {
         $user = auth()->user();
 
-        if (!$user->isLeaderOf($record->race)) {
-            return redirect()
-                ->route('records.manage', $record->race)
-                ->with('error', 'Non hai i permessi per confermare questo record.');
+        if ($entry->confirmed) {
+            return back()->with('error', 'Questo report è stato confermato e non può essere modificato.');
         }
 
-        $record->update(['confirmed' => true]);
+        if ($entry->user_id !== $user->id) {
+            return back()->with('error', 'Non hai i permessi per modificare questo report.');
+        }
+
+        $validated = $request->validate([
+            'km' => 'nullable|numeric|min:0',
+            'pedaggi' => 'nullable|numeric|min:0',
+            'vitto' => 'nullable|numeric|min:0',
+            'alloggio' => 'nullable|numeric|min:0',
+            'spese_varie' => 'nullable|numeric|min:0',
+            'note' => 'nullable|string',
+            'attachments.*' => 'nullable|file|max:10240',
+        ]);
+
+        $entry->update([
+            'km' => $validated['km'] ?? null,
+            'pedaggi' => $validated['pedaggi'] ?? null,
+            'vitto' => $validated['vitto'] ?? null,
+            'alloggio' => $validated['alloggio'] ?? null,
+            'spese_varie' => $validated['spese_varie'] ?? null,
+            'note' => $validated['note'] ?? null,
+        ]);
+
+        // Allegati aggiuntivi
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('report_attachments', 'public');
+
+                $entry->attachments()->create([
+                    'file_path' => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                ]);
+            }
+        }
 
         return redirect()
-            ->route('records.manage', $record->race)
-            ->with('success', 'Record confermato con successo.');
+            ->route('records.manage', ['race' => $entry->race_id, 'day' => $request->input('day')])
+            ->with('success', 'Report aggiornato con successo.');
     }
+    public function destroy(ReportEntry $entry)
+    {
+        $user = auth()->user();
+
+        if ($entry->confirmed) {
+            return back()->with('error', 'Questo report è stato confermato e non può essere eliminato.');
+        }
+
+        if ($entry->user_id !== $user->id) {
+            return back()->with('error', 'Non hai i permessi per eliminare questo report.');
+        }
+
+        $raceId = $entry->race_id;
+        $day = request('day');
+
+        $entry->delete();
+
+        return redirect()
+            ->route('records.manage', ['race' => $raceId, 'day' => $day])
+            ->with('success', 'Report eliminato con successo.');
+    }
+    public function confirm(ReportEntry $entry)
+    {
+        $user = auth()->user();
+
+        if (!$user->isLeaderOf($entry->race)) {
+            return redirect()->route('records.manage', ['race' => $entry->race_id, 'day' => request('day')])
+                ->with('error', 'Non hai i permessi per confermare questo report.');
+        }
+
+        $entry->update(['confirmed' => true]);
+
+        return redirect()->route('records.manage', [
+            'race' => $entry->race_id,
+            'day' => request('day'),
+            'dsc_user' => request('dsc_user'),
+        ])->with('success', 'Report confermato con successo.');
+    }
+
 
     public function confirmAll(Race $race)
     {
         $user = auth()->user();
 
         if (!$user->isLeaderOf($race)) {
-            return back()->with('error', 'Non hai i permessi per confermare i record di questa gara.');
+            return back()->with('error', 'Non hai i permessi per confermare i report di questa gara.');
         }
 
-        $race->records()->where('confirmed', false)->update(['confirmed' => true]);
+        ReportEntry::where('race_id', $race->id)
+            ->where('confirmed', false)
+            ->update(['confirmed' => true]);
 
-        return back()->with('success', 'Tutti i record sono stati confermati con successo.');
+        return redirect()->route('records.manage', [
+            'race' => $race->id,
+            'day' => request('day'),
+            'dsc_user' => request('dsc_user'),
+        ])->with('success', 'Tutti i report (crono) sono stati confermati con successo.');
     }
+
+
+    public function saveEntry(Request $request, Race $race)
+    {
+        $user = auth()->user();
+
+        $entry = ReportEntry::where('race_id', $race->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($entry && $entry->confirmed) {
+            return back()->with('error', 'Il tuo report per questa gara è confermato e non può essere modificato.');
+        }
+
+        $validated = $request->validate([
+            'km' => 'nullable|numeric|min:0',
+            'pedaggi' => 'nullable|numeric|min:0',
+            'vitto' => 'nullable|numeric|min:0',
+            'alloggio' => 'nullable|numeric|min:0',
+            'spese_varie' => 'nullable|numeric|min:0',
+            'note' => 'nullable|string',
+            'attachments.*' => 'nullable|file|max:10240',
+            'day' => 'nullable|date',
+        ]);
+
+        $entry = ReportEntry::updateOrCreate(
+            ['race_id' => $race->id, 'user_id' => $user->id],
+            [
+                'km' => $validated['km'] ?? null,
+                'pedaggi' => $validated['pedaggi'] ?? null,
+                'vitto' => $validated['vitto'] ?? null,
+                'alloggio' => $validated['alloggio'] ?? null,
+                'spese_varie' => $validated['spese_varie'] ?? null,
+                'note' => $validated['note'] ?? null,
+            ]
+        );
+
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('report_attachments', 'public');
+
+                $entry->attachments()->create([
+                    'file_path' => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                ]);
+            }
+        }
+
+        $day = $validated['day'] ?? request('day');
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id, 'day' => $day])
+            ->with('success', 'Report crono salvato/modificato con successo.');
+    }
+
+    public function confirmDscDay(Request $request, Race $race)
+    {
+        $user = auth()->user();
+        if (!$user->isLeaderOf($race)) {
+            return back()->with('error', 'Non hai i permessi per confermare i dati DSC.');
+        }
+
+        $validated = $request->validate([
+            'selected_day' => 'required|date',
+            'target_user_id' => 'required|exists:users,id',
+        ]);
+
+        $workDate = Carbon::parse($validated['selected_day'])->toDateString();
+        $targetId = (int) $validated['target_user_id'];
+
+        $row = ReportDayDsc::where('race_id', $race->id)
+            ->where('user_id', $targetId)
+            ->where('work_date', $workDate)
+            ->first();
+
+        if (!$row) {
+            return back()->with('error', 'Non ci sono dati DSC da confermare per quel crono in quella giornata.');
+        }
+
+        $row->update(['confirmed' => true]);
+
+        return redirect()->route('records.manage', [
+            'race' => $race->id,
+            'day' => $workDate,
+            'dsc_user' => $targetId,
+        ])->with('success', 'Dati DSC confermati per la giornata selezionata.');
+    }
+
+    public function saveDscRace(Request $request, Race $race)
+    {
+        $user = auth()->user();
+        if (!$user->isLeaderOf($race)) {
+            return back()->with('error', 'Non hai i permessi per modificare i dati DSC.');
+        }
+
+        $validated = $request->validate([
+            'van_needed' => 'nullable|boolean',
+            'missed_meals' => 'nullable|integer|min:0|max:200',
+            'apparecchiature' => 'nullable|array',
+            'apparecchiature.*' => 'string',
+        ]);
+
+        // se già confermato, non modificabile
+        $existing = ReportRaceDsc::where('race_id', $race->id)->first();
+        if ($existing && $existing->confirmed) {
+            return back()->with('error', 'I dati DSC della gara sono confermati e non possono essere modificati.');
+        }
+
+        ReportRaceDsc::updateOrCreate(
+            ['race_id' => $race->id],
+            [
+                'user_id' => $user->id,
+                'van_needed' => (bool) ($validated['van_needed'] ?? false),
+                'missed_meals' => (int) ($validated['missed_meals'] ?? 0),
+                'apparecchiature' => $validated['apparecchiature'] ?? [],
+            ]
+        );
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id])
+            ->with('success', 'Dati DSC (gara) salvati/modificati con successo.');
+    }
+
+    public function confirmDscRace(Request $request, Race $race)
+    {
+        $user = auth()->user();
+        if (!$user->isLeaderOf($race)) {
+            return back()->with('error', 'Non hai i permessi per confermare i dati DSC.');
+        }
+
+        $row = ReportRaceDsc::where('race_id', $race->id)->first();
+        if (!$row) {
+            return back()->with('error', 'Non ci sono dati DSC da confermare per questa gara.');
+        }
+
+        $row->update(['confirmed' => true]);
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id])
+            ->with('success', 'Dati DSC (gara) confermati con successo.');
+    }
+
+
+    public function saveDscDayHours(Request $request, Race $race)
+    {
+        $user = auth()->user();
+        if (!$user->isLeaderOf($race)) {
+            return back()->with('error', 'Non hai i permessi per modificare i dati DSC.');
+        }
+
+        $validated = $request->validate([
+            'day' => 'required|date',
+            'morning_start' => 'nullable|date_format:H:i',
+            'morning_end' => 'nullable|date_format:H:i',
+            'afternoon_start' => 'nullable|date_format:H:i',
+            'afternoon_end' => 'nullable|date_format:H:i',
+        ]);
+
+        $workDate = Carbon::parse($validated['day'])->toDateString();
+
+        // vincolo: deve essere dentro il range gara
+        $start = Carbon::parse($race->date_of_race)->toDateString();
+        $end = $race->date_end ? Carbon::parse($race->date_end)->toDateString() : $start;
+        if ($end < $start) {
+            [$start, $end] = [$end, $start];
+        }
+        if ($workDate < $start || $workDate > $end) {
+            return back()->with('error', 'La giornata selezionata non rientra nel periodo della gara.');
+        }
+        $existing = ReportDayDsc::where('race_id', $race->id)
+            ->where('work_date', $workDate)
+            ->first();
+
+        if ($existing && $existing->confirmed) {
+            return redirect()
+                ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
+                ->with('error', 'Gli orari DSC per questa giornata sono confermati e non possono essere modificati.');
+        }
+
+        // Qui salviamo/aggiorniamo UNA SOLA riga per race_id + work_date (vale per tutti)
+        ReportDayDsc::updateOrCreate(
+            [
+                'race_id' => $race->id,
+                'work_date' => $workDate,
+            ],
+            [
+                // se vuoi, puoi salvare anche user_id = leader che ha inserito (opzionale)
+                'user_id' => $user->id,
+
+                'morning_start' => $validated['morning_start'] ?? null,
+                'morning_end' => $validated['morning_end'] ?? null,
+                'afternoon_start' => $validated['afternoon_start'] ?? null,
+                'afternoon_end' => $validated['afternoon_end'] ?? null,
+            ]
+        );
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
+            ->with('success', 'Orari DSC salvati per la giornata selezionata.');
+    }
+    public function confirmDscDayHours(Request $request, Race $race)
+    {
+        $user = auth()->user();
+        if (!$user->isLeaderOf($race)) {
+            return back()->with('error', 'Non hai i permessi per confermare i dati DSC.');
+        }
+
+        $validated = $request->validate([
+            'day' => 'required|date',
+        ]);
+
+        $workDate = Carbon::parse($validated['day'])->toDateString();
+
+        // Deve essere nel range gara
+        $start = Carbon::parse($race->date_of_race)->toDateString();
+        $end = $race->date_end ? Carbon::parse($race->date_end)->toDateString() : $start;
+        if ($end < $start) {
+            [$start, $end] = [$end, $start];
+        }
+        if ($workDate < $start || $workDate > $end) {
+            return back()->with('error', 'La giornata selezionata non rientra nel periodo della gara.');
+        }
+
+        $row = ReportDayDsc::where('race_id', $race->id)
+            ->where('work_date', $workDate)
+            ->first();
+
+        if (!$row) {
+            return back()->with('error', 'Non ci sono orari DSC da confermare per questa giornata.');
+        }
+
+        if ($row->confirmed) {
+            return redirect()
+                ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
+                ->with('success', 'Orari DSC già confermati per questa giornata.');
+        }
+
+        $row->update(['confirmed' => true]);
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
+            ->with('success', 'Orari DSC confermati per la giornata selezionata.');
+    }
+    public function confirmMyEntry(Request $request, Race $race)
+    {
+        $user = auth()->user();
+
+        $entry = ReportEntry::where('race_id', $race->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$entry) {
+            return back()->with('error', 'Non hai ancora salvato il report crono da confermare.');
+        }
+
+        if ($entry->confirmed) {
+            return back()->with('success', 'Il report crono è già confermato.');
+        }
+
+        $entry->update(['confirmed' => true]);
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id, 'day' => request('day')])
+            ->with('success', 'Report crono confermato. Non potrai più modificarlo.');
+    }
+
+public function deleteMyEntry(Request $request, Race $race)
+{
+    $user = auth()->user();
+
+    $entry = ReportEntry::where('race_id', $race->id)
+        ->where('user_id', $user->id)
+        ->with('attachments')
+        ->first();
+
+    if (!$entry) {
+        return back()->with('error', 'Non c’è nessun report da eliminare.');
+    }
+
+    if ($entry->confirmed) {
+        return back()->with('error', 'Questo report è confermato e non può essere eliminato.');
+    }
+
+    // Se vuoi eliminare anche i file fisici dallo storage, dimmelo e te lo aggiungo.
+    // Qui elimino solo i record allegati e il report.
+    $entry->attachments()->delete();
+    $entry->delete();
+
+    $day = $request->input('day') ?? request('day');
+
+    return redirect()
+        ->route('records.manage', ['race' => $race->id, 'day' => $day])
+        ->with('success', 'Report eliminato con successo.');
+}
+
 }

@@ -174,7 +174,7 @@
                                 @endif
 
                                 <td class="text-center">
-                                    <a href="{{ route('admin.raceReport', $race) }}" class="btn btn-sm btn-ficr"
+                                    <a href="{{ route('admin.races.report_full', ['race' => $race->id]) }}" class="btn btn-sm btn-ficr"
                                         aria-label="Visualizza report della gara del {{ $race->date_of_race }}">
                                         Report
                                     </a>

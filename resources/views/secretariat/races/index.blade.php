@@ -150,8 +150,9 @@
                                 </td>
 
                                 <td class="text-center">
-                                    <a class="btn btn-sm btn-ficr" href="{{ route('secretariat.races.show', $race) }}">
-                                        <i class="fa-regular fa-folder-open me-1"></i> Apri
+                                    <a href="{{ route('secretariat.races.report', $race) }}"
+                                        class="btn btn-primary btn-sm">
+                                        Apri
                                     </a>
                                 </td>
                             </tr>

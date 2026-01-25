@@ -18,6 +18,21 @@ class Race extends Model
     {
         return $this->belongsToMany(User::class)->withPivot('is_leader')->withTimestamps();
     }
+    public function reportEntries()
+    {
+        return $this->hasMany(\App\Models\ReportEntry::class);
+    }
+
+    public function reportDscDays()
+    {
+        return $this->hasMany(\App\Models\ReportDayDsc::class);
+    }
+
+    public function reportAdminDays()
+    {
+        return $this->hasMany(\App\Models\ReportDayAdmin::class);
+    }
+
 
     protected $fillable = [
         'name',

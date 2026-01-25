@@ -26,374 +26,421 @@
                     </div>
                 @endif
 
-                @if ($records->where('confirmed', false)->isNotEmpty() && auth()->user()->isLeaderOf($race))
-                    <form method="POST" action="{{ route('records.confirm.all', $race) }}" class="mb-4">
-                        @csrf
-                        <button type="submit" class="btn btn-warning">
-                            <i class="fas fa-check-double me-1"></i> Conferma Tutti i Record
-                        </button>
-                    </form>
-                @endif
+                @php
+                    $specs = is_array($race->specialization_of_race) ? $race->specialization_of_race : [];
 
-                {{-- CARD: Aggiungi record --}}
-                @if ($records->isEmpty() || $records->where('confirmed', false)->isNotEmpty())
-                    <div class="card tk-card mb-4">
-                        <div class="card-header tk-card-header">
-                            <i class="fas fa-plus-circle me-2"></i> Aggiungi record
+                    $myEntry = $entries->get(auth()->id());
+                    $hasEntry = $myEntry && ($myEntry->exists ?? false);
+
+                    $dsc = $dscRace;
+
+                    $hasUnconfirmed = false;
+                    foreach ($rows as $r) {
+                        if (!($r['entry']->confirmed ?? false) && ($r['entry']->exists ?? false)) {
+                            $hasUnconfirmed = true;
+                            break;
+                        }
+                    }
+
+                    // Per DSC: nel riepilogo voglio SOLO gli altri crono
+                    $rowsForSummary = $rows;
+                    if ($isLeader) {
+                        $rowsForSummary = collect($rows)->reject(function ($r) {
+                            return (int) ($r['user']->id ?? 0) === (int) auth()->id();
+                        });
+                    }
+
+                    // Dati FULL (solo se passati dal controller)
+                    // (vedi modifica controller sotto)
+                    $hasFullData = isset($fullRows, $fullDays) && is_iterable($fullRows) && is_array($fullDays);
+                @endphp
+
+                {{-- ============================================================
+                    CARD: CRONO (sempre visibile) - 1 volta per gara
+                ============================================================ --}}
+                <div class="card tk-card mb-4">
+                    @php
+                        $lockedEntry = $myEntry && ($myEntry->confirmed ?? false);
+                    @endphp
+
+                    <div class="card-header tk-card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-pen me-2"></i> Report Crono (una volta per gara)
                         </div>
-                        <div class="card-body">
-                            <form method="POST" action="{{ route('records.store', $race) }}"
-                                enctype="multipart/form-data" class="mb-0">
-                                @csrf
-                                <input type="hidden" name="user_id" value="{{ auth()->id() }}">
-                                <input type="hidden" name="race_id" value="{{ $race->id }}">
 
-                                {{-- Tipo + €/Km (€/Km solo DSC) --}}
-                                <div class="row g-3 mb-3">
-                                    <div class="col-12 col-md-3">
-                                        <label for="type" class="form-label">Tipo *</label>
-                                        <select id="type" name="type"
-                                            class="form-select @error('type') is-invalid @enderror" required>
-                                            <option value="" disabled {{ old('type') ? '' : 'selected' }}>
-                                                Seleziona…
-                                            </option>
-                                            <option value="FC" {{ old('type') === 'FC' ? 'selected' : '' }}>FC —
-                                                Fuori città</option>
-                                            <option value="CM" {{ old('type') === 'CM' ? 'selected' : '' }}>CM —
-                                                Fisso</option>
-                                            <option value="CP" {{ old('type') === 'CP' ? 'selected' : '' }}>CP —
-                                                Fisso</option>
-                                        </select>
-                                        @error('type')
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapseCrono" aria-expanded="true" aria-controls="collapseCrono">
+                            Mostra / Nascondi
+                        </button>
+                    </div>
+
+                    <div id="collapseCrono" class="collapse show">
+                        <div class="card-body">
+                            <form method="POST" action="{{ route('records.entry.save', $race) }}"
+                                enctype="multipart/form-data">
+                                @csrf
+
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-2">
+                                        <label class="form-label">Km</label>
+                                        <input type="number" step="0.01" name="km"
+                                            class="form-control @error('km') is-invalid @enderror"
+                                            value="{{ old('km', $myEntry->km ?? null) }}"
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('km')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
 
-                                    @if (auth()->user()->isLeaderOf($race))
-                                        <div class="col-12 col-md-3">
-                                            <label for="euroKM" class="form-label">€/Km</label>
-                                            <input type="text" id="euroKM" name="euroKM" inputmode="decimal"
-                                                pattern="^\d{1,6}([,.]\d{1,2})?$"
-                                                class="form-control @error('euroKM') is-invalid @enderror"
-                                                value="{{ old('euroKM') }}" placeholder="es. 0,36">
-                                            <small class="text-muted">Puoi usare virgola o punto (max 2
-                                                decimali).</small>
-                                            @error('euroKM')
-                                                <div class="invalid-feedback">{{ $message }}</div>
-                                            @enderror
-                                        </div>
+                                    <div class="col-12 col-md-2">
+                                        <label class="form-label">Pedaggi / Trasporto</label>
+                                        <input type="number" step="0.01" name="pedaggi"
+                                            class="form-control @error('pedaggi') is-invalid @enderror"
+                                            value="{{ old('pedaggi', $myEntry->pedaggi ?? null) }}"
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('pedaggi')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-12 col-md-2">
+                                        <label class="form-label">Vitto</label>
+                                        <input type="number" step="0.01" name="vitto"
+                                            class="form-control @error('vitto') is-invalid @enderror"
+                                            value="{{ old('vitto', $myEntry->vitto ?? null) }}"
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('vitto')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-12 col-md-2">
+                                        <label class="form-label">Alloggio</label>
+                                        <input type="number" step="0.01" name="alloggio"
+                                            class="form-control @error('alloggio') is-invalid @enderror"
+                                            value="{{ old('alloggio', $myEntry->alloggio ?? null) }}"
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('alloggio')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-12 col-md-2">
+                                        <label class="form-label">Spese varie</label>
+                                        <input type="number" step="0.01" name="spese_varie"
+                                            class="form-control @error('spese_varie') is-invalid @enderror"
+                                            value="{{ old('spese_varie', $myEntry->spese_varie ?? null) }}"
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('spese_varie')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-12 col-md-2">
+                                        <label class="form-label">Allegati</label>
+                                        <input type="file" name="attachments[]" class="form-control" multiple
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label">Note</label>
+                                        <textarea name="note" class="form-control" rows="2" {{ $lockedEntry ? 'disabled' : '' }}>{{ old('note', $myEntry->note ?? '') }}</textarea>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2 mt-3">
+                                    @if (!$lockedEntry)
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-1"></i> {{ $hasEntry ? 'Modifica' : 'Salva' }}
+                                            Report Crono
+                                        </button>
+                                    @else
+                                        <span class="badge bg-success align-self-center">
+                                            <i class="fas fa-check-circle me-1"></i> Report Crono confermato
+                                        </span>
                                     @endif
+                                    {{-- @if (!$isLeader && $myEntry && ($myEntry->exists ?? false) && !($myEntry->confirmed ?? false))
+                                        <form method="POST" action="{{ route('records.entry.delete', $race) }}"
+                                            onsubmit="return confirm('Eliminare il tuo report per questa gara?');">
+                                            @csrf
+                                            <input type="hidden" name="day"
+                                                value="{{ $selectedDay ?? request('day') }}">
 
-                                    {{-- Trasporto: solo DSC --}}
-                                    @if (auth()->user()->isLeaderOf($race))
-                                        <div class="col-12 col-md-6">
-                                            <label class="form-label d-block">Trasporto *</label>
-                                            <div class="d-flex align-items-center gap-3">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="transport_mode"
-                                                        id="tm_trasp" value="trasportato"
-                                                        {{ old('transport_mode', 'km') === 'trasportato' ? 'checked' : '' }}>
-                                                    <label class="form-check-label" for="tm_trasp">Trasportato</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="transport_mode"
-                                                        id="tm_km" value="km"
-                                                        {{ old('transport_mode', 'km') === 'km' ? 'checked' : '' }}>
-                                                    <label class="form-check-label" for="tm_km">Numero km</label>
-                                                </div>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fas fa-trash me-1"></i> Elimina il mio report
+                                            </button>
+                                        </form>
+                                    @endif --}}
+                                </div>
+                            </form>
 
-                                                <div class="ms-3" id="kmBox">
-                                                    <label for="km_documented" class="form-label mb-0 me-2">Km</label>
-                                                    <input type="number" step="any" name="km_documented"
-                                                        id="km_documented" class="form-control d-inline-block"
-                                                        style="max-width: 140px" value="{{ old('km_documented') }}">
-                                                </div>
+                            @if ($isLeader)
+                                <div class="mt-3">
+                                    <form method="POST" action="{{ route('records.entry.confirm', $race) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-success"
+                                            onclick="return confirm('Confermare il Report Crono? Dopo non potrai più modificarlo.');"
+                                            {{ $myEntry && ($myEntry->exists ?? false) && !$lockedEntry ? '' : 'disabled' }}>
+                                            <i class="fas fa-check me-1"></i> Conferma Report Crono
+                                        </button>
+                                    </form>
+                                </div>
+                            @endif
+
+                            @if ($myEntry && $myEntry->attachments && $myEntry->attachments->count())
+                                <hr>
+                                <h5 class="mb-2">Allegati già caricati</h5>
+                                <ul class="mb-0">
+                                    @foreach ($myEntry->attachments as $a)
+                                        <li>
+                                            <a href="{{ asset('storage/' . $a->file_path) }}" target="_blank"
+                                                rel="noopener">
+                                                {{ $a->original_name }}
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ============================================================
+                    DSC (solo leader): una volta per gara + orari giornalieri
+                ============================================================ --}}
+                @if ($isLeader)
+                    @php $lockedDsc = $dsc && ($dsc->confirmed ?? false); @endphp
+
+                    {{-- DSC GARA --}}
+                    <div class="card tk-card mb-4">
+                        <div class="card-header tk-card-header">
+                            <i class="fas fa-user-shield me-2"></i> Dati DSC (una volta per gara, validi per tutti)
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ route('records.dscRace.save', $race) }}">
+                                @csrf
+
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-3">
+                                        <label class="form-label">Furgone</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="van_needed"
+                                                value="1" id="van_needed"
+                                                {{ old('van_needed', $dsc->van_needed ?? false) ? 'checked' : '' }}
+                                                {{ $lockedDsc ? 'disabled' : '' }}>
+                                            <label class="form-check-label" for="van_needed">Serve furgone</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 col-md-3">
+                                        <label class="form-label">Numero mancati pasti</label>
+                                        <input type="number" min="0" step="1" name="missed_meals"
+                                            class="form-control"
+                                            value="{{ old('missed_meals', $dsc->missed_meals ?? 0) }}"
+                                            {{ $lockedDsc ? 'disabled' : '' }}>
+                                    </div>
+
+                                    @if (!empty($specs))
+                                        <div class="col-12">
+                                            <label class="form-label">Apparecchiature (gara)</label>
+                                            <div class="row g-2">
+                                                @foreach ($specs as $spec)
+                                                    <div class="col-12 col-sm-6 col-md-4">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                name="apparecchiature[]" id="app_{{ $spec }}"
+                                                                value="{{ $spec }}"
+                                                                {{ in_array($spec, old('apparecchiature', $dsc->apparecchiature ?? []), true) ? 'checked' : '' }}
+                                                                {{ $lockedDsc ? 'disabled' : '' }}>
+                                                            <label class="form-check-label"
+                                                                for="app_{{ $spec }}">
+                                                                {{ $spec }}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
                                             </div>
                                         </div>
                                     @endif
                                 </div>
 
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-striped table-vertical-separators mb-3">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th rowspan="2">Servizio Giornaliero</th>
-                                                <th rowspan="2">Servizio Speciale</th>
-                                                <th rowspan="2">Tariffa</th>
-                                                <th colspan="4" class="text-center">Spese Documentate</th>
-                                                @if (auth()->user()->isLeaderOf($race))
-                                                    <th colspan="3" class="text-center">Spese NON Documentate</th>
-                                                @endif
-                                            </tr>
-                                            <tr>
-                                                <th>Biglietto</th>
-                                                <th>Vitto</th>
-                                                <th>Alloggio</th>
-                                                <th>Varie</th>
-                                                @if (auth()->user()->isLeaderOf($race))
-                                                    <th>Vitto</th>
-                                                    <th>Diaria</th>
-                                                    <th>Diaria Speciale</th>
-                                                @endif
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                {{-- SG / SS / Tariffa --}}
-                                                <td><input type="number" step="1" name="daily_service"
-                                                        class="form-control" value="{{ old('daily_service') }}"></td>
-                                                <td><input type="number" step="1" name="special_service"
-                                                        class="form-control" value="{{ old('special_service') }}">
-                                                </td>
-                                                <td><input type="text" name="rate_documented" class="form-control"
-                                                        value="{{ old('rate_documented') }}"></td>
-
-                                                {{-- Documentate --}}
-                                                <td><input type="number" step="any"
-                                                        name="travel_ticket_documented" class="form-control"
-                                                        value="{{ old('travel_ticket_documented') }}"></td>
-                                                <td><input type="number" step="any" name="food_documented"
-                                                        class="form-control" value="{{ old('food_documented') }}">
-                                                </td>
-                                                <td><input type="number" step="any"
-                                                        name="accommodation_documented" class="form-control"
-                                                        value="{{ old('accommodation_documented') }}"></td>
-                                                <td><input type="number" step="any" name="various_documented"
-                                                        class="form-control" value="{{ old('various_documented') }}">
-                                                </td>
-
-                                                {{-- NON Documentate (solo DSC) --}}
-                                                @if (auth()->user()->isLeaderOf($race))
-                                                    <td><input type="number" step="any"
-                                                            name="food_not_documented" class="form-control"
-                                                            value="{{ old('food_not_documented') }}"></td>
-                                                    <td><input type="number" step="any"
-                                                            name="daily_allowances_not_documented"
-                                                            class="form-control"
-                                                            value="{{ old('daily_allowances_not_documented') }}"></td>
-                                                    <td><input type="number" step="any"
-                                                            name="special_daily_allowances_not_documented"
-                                                            class="form-control"
-                                                            value="{{ old('special_daily_allowances_not_documented') }}">
-                                                    </td>
-                                                @endif
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                <div class="d-flex gap-2 mt-3">
+                                    @if (!$lockedDsc)
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="fas fa-save me-1"></i> {{ $dsc ? 'Modifica' : 'Salva' }} Dati
+                                            DSC
+                                        </button>
+                                    @else
+                                        <span class="badge bg-success align-self-center">
+                                            <i class="fas fa-check-circle me-1"></i> DSC confermato per la gara
+                                        </span>
+                                    @endif
                                 </div>
-
-                                @php
-                                    // Mappa slug namespacizzato "tipo__spec" → label umano della specializzazione
-                                    $typesMap = config('races.types', []);
-                                    $nsToLabel = [];
-
-                                    foreach ($typesMap as $typeLabel => $equipList) {
-                                        $typeSlug = \Illuminate\Support\Str::slug($typeLabel);
-                                        foreach ($equipList as $lab) {
-                                            if (!filled($lab)) {
-                                                continue;
-                                            }
-                                            $equipSlug = \Illuminate\Support\Str::slug($lab);
-                                            $ns = $typeSlug . '__' . $equipSlug;
-                                            $nsToLabel[$ns] = $lab;
-                                        }
-                                    }
-
-                                    // Helper per mostrare SOLO il nome della specializzazione (senza tipo)
-                                    $prettyApp = function ($ns) use ($nsToLabel) {
-                                        if (isset($nsToLabel[$ns])) {
-                                            return $nsToLabel[$ns];
-                                        }
-                                        // fallback: prendo la parte dopo "__" e tolgo slug
-                                        if (is_string($ns) && str_contains($ns, '__')) {
-                                            $parts = explode('__', $ns, 2);
-                                            $ns = $parts[1];
-                                        }
-                                        $ns = str_replace(['_', '-'], ' ', (string) $ns);
-                                        return ucwords($ns);
-                                    };
-
-                                    $specs = is_array($race->specialization_of_race)
-                                        ? $race->specialization_of_race
-                                        : [];
-                                @endphp
-
-                                {{-- Apparecchiature (solo DSC) --}}
-                                @if (auth()->user()->isLeaderOf($race) && !empty($specs))
-                                    <div class="mb-3">
-                                        <label class="form-label">Apparecchiature usate in gara</label>
-                                        <div class="row g-2">
-                                            @foreach ($specs as $spec)
-                                                <div class="col-12 col-sm-6 col-md-4">
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="checkbox"
-                                                            name="apparecchiature[]" id="app_{{ $spec }}"
-                                                            value="{{ $spec }}"
-                                                            {{ in_array($spec, old('apparecchiature', []), true) ? 'checked' : '' }}>
-                                                        <label class="form-check-label"
-                                                            for="app_{{ $spec }}">
-                                                            {{ $prettyApp($spec) }}
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-
-                                <div class="mb-3">
-                                    <label for="description" class="form-label">Note</label>
-                                    <textarea name="description" id="description" class="form-control" rows="3">{{ old('description') }}</textarea>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="attachments" class="form-label">Allegati (facoltativi)</label>
-                                    <input type="file" name="attachments[]" id="attachments" class="form-control"
-                                        multiple>
-                                </div>
-
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-1"></i> Aggiungi Record
-                                </button>
                             </form>
+
+                            <div class="mt-3">
+                                <form method="POST" action="{{ route('records.dscRace.confirm', $race) }}">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success"
+                                        onclick="return confirm('Confermare i dati DSC per l\'intera gara?');"
+                                        {{ $dsc && !$dsc->confirmed ? '' : 'disabled' }}>
+                                        <i class="fas fa-check me-1"></i> Conferma DSC (gara)
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- DSC ORARI GIORNALIERI --}}
+                    <div class="card tk-card mb-4">
+                        <div class="card-header tk-card-header">
+                            <i class="fas fa-clock me-2"></i> Orari DSC (per giornata, validi per tutti)
+                        </div>
+
+                        <div class="card-body">
+                            <form method="GET" class="mb-3">
+                                <label for="day" class="form-label">Seleziona giornata</label>
+                                <select id="day" name="day" class="form-select"
+                                    onchange="this.form.submit()">
+                                    @foreach ($days as $day)
+                                        <option value="{{ $day }}"
+                                            {{ $selectedDay === $day ? 'selected' : '' }}>
+                                            {{ ucwords(\Carbon\Carbon::parse($day)->translatedFormat('l d F')) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </form>
+
+                            @php
+                                $lockedHours = $dscDayHours && ($dscDayHours->confirmed ?? false);
+                            @endphp
+
+                            <form method="POST" action="{{ route('records.dscDayHours.save', $race) }}">
+                                @csrf
+                                <input type="hidden" name="day" value="{{ $selectedDay }}">
+
+                                <div class="row g-3">
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Ora inizio mattina</label>
+                                        <input type="time" name="morning_start" class="form-control"
+                                            value="{{ old('morning_start', $dscDayHours->morning_start ?? '') }}"
+                                            {{ $lockedHours ? 'disabled' : '' }}>
+                                    </div>
+
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Ora fine mattina</label>
+                                        <input type="time" name="morning_end" class="form-control"
+                                            value="{{ old('morning_end', $dscDayHours->morning_end ?? '') }}"
+                                            {{ $lockedHours ? 'disabled' : '' }}>
+                                    </div>
+
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Ora inizio pomeriggio</label>
+                                        <input type="time" name="afternoon_start" class="form-control"
+                                            value="{{ old('afternoon_start', $dscDayHours->afternoon_start ?? '') }}"
+                                            {{ $lockedHours ? 'disabled' : '' }}>
+                                    </div>
+
+                                    <div class="col-6 col-md-3">
+                                        <label class="form-label">Ora fine pomeriggio</label>
+                                        <input type="time" name="afternoon_end" class="form-control"
+                                            value="{{ old('afternoon_end', $dscDayHours->afternoon_end ?? '') }}"
+                                            {{ $lockedHours ? 'disabled' : '' }}>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2 mt-3">
+                                    @if (!$lockedHours)
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="fas fa-save me-1"></i> {{ $dscDayHours ? 'Modifica' : 'Salva' }}
+                                            Orari DSC (giornata)
+                                        </button>
+                                    @else
+                                        <span class="badge bg-success align-self-center">
+                                            <i class="fas fa-check-circle me-1"></i> Orari DSC confermati per questa
+                                            giornata
+                                        </span>
+                                    @endif
+                                </div>
+                            </form>
+
+                            <div class="mt-3">
+                                <form method="POST" action="{{ route('records.dscDayHours.confirm', $race) }}">
+                                    @csrf
+                                    <input type="hidden" name="day" value="{{ $selectedDay }}">
+
+                                    <button type="submit" class="btn btn-success"
+                                        onclick="return confirm('Confermare gli orari DSC per questa giornata? Dopo non potrai più modificarli.');"
+                                        {{ $dscDayHours && !$lockedHours ? '' : 'disabled' }}>
+                                        <i class="fas fa-check me-1"></i> Conferma Orari DSC (giornata)
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 @endif
 
-                {{-- CARD: tabella record --}}
-                <div class="card tk-card p-3">
-                    <div class="card-header tk-card-header">
-                        <i class="fas fa-list-ul me-2"></i> Record inseriti
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-striped align-middle mb-0 table-vertical-separators">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th rowspan="2">Crono</th>
-                                        <th rowspan="2">Tipo</th>
-                                        <th rowspan="2">Trasporto</th>
-                                        <th rowspan="2">€/Km</th>
-                                        <th rowspan="2">Km (eff.)</th>
-                                        <th rowspan="2">Imp. Km</th>
-                                        <th rowspan="2">Servizio Giornaliero</th>
-                                        <th rowspan="2">Servizio Speciale</th>
-                                        <th colspan="4" class="text-center">Spese Documentate</th>
-                                        <th colspan="3" class="text-center">Spese NON Documentate</th>
-                                        <th rowspan="2">Apparecchiature</th>
-                                        <th rowspan="2">Totale</th>
-                                        <th rowspan="2">Note</th>
-                                        <th rowspan="2">Allegati</th>
-                                    </tr>
-                                    <tr>
-                                        <th>Bigl.</th>
-                                        <th>Vitto</th>
-                                        <th>Alloggio</th>
-                                        <th>Varie</th>
-                                        <th>Vitto</th>
-                                        <th>Diaria</th>
-                                        <th>Diaria Spec.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($records as $record)
-                                        @php
-                                            $user = auth()->user();
-                                            $isLeader = $user->isLeaderOf($race);
-                                            $isOwner = $user->id === $record->user_id;
-                                            $canSee = $isOwner || $isLeader;
+                {{-- ============================================================
+                    TABELLA SOTTO:
+                    - DSC: riepilogo snello (solo altri crono)
+                    - NON DSC: tabella FULL (stile report_full)
+                ============================================================ --}}
+                @if ($isLeader)
 
-                                            $ratePerKm = $record->euroKM !== null ? (float) $record->euroKM : 0.36;
-                                            $kmEff = (float) ($record->km_documented ?? 0);
-                                            $amount = round($kmEff * $ratePerKm, 2);
+                    {{-- ================== DSC: RIEPILOGO SNELLO ================== --}}
+                    <div class="card tk-card p-3">
+                        <div class="card-header tk-card-header">
+                            <i class="fas fa-list-ul me-2"></i> Report — riepilogo gara (solo altri cronometristi)
+                        </div>
 
-                                            // usa lo stesso helper definito sopra ($prettyApp)
-                                            $apps = array_map($prettyApp, $record->apparecchiature ?? []);
-                                            $appsLabel = $apps ? implode(', ', $apps) : '—';
-                                        @endphp
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0 table-vertical-separators">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Crono</th>
+                                            <th>Km</th>
+                                            <th>Pedaggi</th>
+                                            <th>Vitto</th>
+                                            <th>Alloggio</th>
+                                            <th>Spese varie</th>
+                                            <th>Azioni</th>
+                                        </tr>
+                                    </thead>
 
-                                        @if ($canSee)
+                                    <tbody>
+                                        @forelse ($rowsForSummary as $row)
+                                            @php
+                                                $entry = $row['entry'];
+                                            @endphp
+
                                             <tr>
-                                                <td>{{ $record->user->name }} {{ $record->user->surname }}</td>
-                                                <td>{{ $record->type ?? '—' }}</td>
-                                                <td>{{ $record->transport_mode === 'trasportato' ? 'Trasportato' : 'Km' }}
-                                                </td>
-                                                <td>{{ number_format($ratePerKm, 2) }}</td>
-                                                <td>{{ $kmEff }}</td>
-                                                <td>{{ number_format($amount, 2) }}</td>
+                                                <td>{{ $row['user']->name }} {{ $row['user']->surname }}</td>
 
-                                                {{-- Servizi --}}
-                                                <td>{{ $record->daily_service }}</td>
-                                                <td>{{ $record->special_service }}</td>
+                                                <td>{{ number_format((float) ($entry->km ?? 0), 2) }}</td>
+                                                <td>{{ number_format((float) ($entry->pedaggi ?? 0), 2) }}</td>
+                                                <td>{{ number_format((float) ($entry->vitto ?? 0), 2) }}</td>
+                                                <td>{{ number_format((float) ($entry->alloggio ?? 0), 2) }}</td>
+                                                <td>{{ number_format((float) ($entry->spese_varie ?? 0), 2) }}</td>
 
-                                                {{-- Spese Documentate --}}
-                                                <td>{{ $record->travel_ticket_documented }}</td>
-                                                <td>{{ $record->food_documented }}</td>
-                                                <td>{{ $record->accommodation_documented }}</td>
-                                                <td>{{ $record->various_documented }}</td>
+                                                <td class="text-nowrap">
+                                                    @php
+                                                        $canConfirm = $isLeader && !$entry->confirmed;
+                                                    @endphp
 
-                                                {{-- Spese NON Documentate --}}
-                                                <td>{{ $record->food_not_documented }}</td>
-                                                <td>{{ $record->daily_allowances_not_documented }}</td>
-                                                <td>{{ $record->special_daily_allowances_not_documented }}</td>
-
-                                                <td>{{ $appsLabel }}</td>
-                                                <td><strong>{{ number_format($record->total, 2) }}</strong></td>
-                                                <td>{{ $record->description }}</td>
-                                                <td>
-                                                    @if ($record->attachments && $record->attachments->count())
-                                                        <ul class="list-unstyled mb-0">
-                                                            @foreach ($record->attachments as $attachment)
-                                                                <li>
-                                                                    <a href="{{ route('attachments.show', $attachment) }}"
-                                                                        target="_blank">
-                                                                        {{ $attachment->original_name }}
-                                                                    </a>
-                                                                </li>
-                                                            @endforeach
-                                                        </ul>
-                                                    @else
-                                                        <span class="text-muted">—</span>
-                                                    @endif
-                                                </td>
-                                            </tr>
-
-                                            {{-- Riga azioni --}}
-                                            <tr class="bg-light">
-                                                <td colspan="19">
-                                                    <div class="d-flex flex-wrap justify-content-end gap-2">
-                                                        @if (auth()->user()->isLeaderOf($race) && !$record->confirmed)
+                                                    <div class="d-flex flex-wrap gap-2 justify-content-start">
+                                                        @if ($canConfirm && ($entry->exists ?? false))
                                                             <form method="POST"
-                                                                action="{{ route('records.confirm', $record) }}"
-                                                                class="d-inline">
+                                                                action="{{ route('records.confirm', $entry) }}">
                                                                 @csrf
                                                                 <button type="submit" class="btn btn-warning btn-sm"
-                                                                    onclick="return confirm('Confermare questo record?');">
+                                                                    onclick="return confirm('Confermare questo report?');">
                                                                     <i class="fas fa-check me-1"></i> Conferma
                                                                 </button>
                                                             </form>
                                                         @endif
 
-                                                        @php
-                                                            $canEdit =
-                                                                auth()->id() === $record->user_id &&
-                                                                !$record->confirmed;
-                                                        @endphp
-
-                                                        @if ($canEdit)
-                                                            <a href="{{ route('records.edit', $record) }}"
-                                                                class="btn btn-secondary btn-sm">
-                                                                <i class="fas fa-pen me-1"></i> Modifica
-                                                            </a>
-                                                            <form action="{{ route('records.destroy', $record) }}"
-                                                                method="POST" class="d-inline">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                                <button type="submit" class="btn btn-danger btn-sm">
-                                                                    <i class="fas fa-trash me-1"></i> Elimina
-                                                                </button>
-                                                            </form>
-                                                        @elseif ($record->confirmed)
+                                                        @if ($entry->confirmed)
                                                             <span class="badge bg-success align-self-center">
                                                                 <i class="fas fa-check-circle me-1"></i> Confermato
                                                             </span>
@@ -401,33 +448,710 @@
                                                     </div>
                                                 </td>
                                             </tr>
-                                        @endif
-                                    @endforeach
-                                </tbody>
-                            </table>
+                                        @empty
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted p-4">
+                                                    Nessun dato disponibile.
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    @if ($hasUnconfirmed)
+                        <div class="d-flex mt-3 flex-wrap gap-2">
+                            <form method="POST" action="{{ route('records.confirm.all', $race) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-warning"
+                                    onclick="return confirm('Confermare TUTTI i report della gara?');">
+                                    <i class="fas fa-check-double me-1"></i> Conferma Tutti i Report della Gara
+                                </button>
+                            </form>
+
+                            <a href="{{ route('secretariat.races.reportFull', $race) }}"
+                                class="btn btn-outline-primary">
+                                <i class="fas fa-file-alt me-1"></i> Apri Report Completo
+                            </a>
+                        </div>
+                    @endif
+                @else
+                    {{-- ================== CRONO NON DSC: TABELLA FULL ================== --}}
+                    @if (!$hasFullData)
+                        <div class="alert alert-warning">
+                            Dati “full” non disponibili. Ti manca la modifica al controller (vedi sotto).
+                        </div>
+                    @else
+                        @php
+                            // variabili comode (arrivano dal controller)
+                            $startDate = \Carbon\Carbon::parse($race->date_of_race);
+                            $endDate = $race->date_end ? \Carbon\Carbon::parse($race->date_end) : $startDate->copy();
+
+                            $appsDsc = $dscRace->apparecchiature ?? [];
+                            $missedMeals = (int) ($dscRace->missed_meals ?? 0);
+                            $missedMealsAmount = $missedMeals * 15;
+
+                            $vanNeeded = (bool) ($dscRace->van_needed ?? false);
+
+                            $vanCostRace =
+                                $settings && $settings->van_cost !== null ? (float) $settings->van_cost : 0.0;
+                            $coeffKm = $settings && $settings->coeff_km !== null ? (float) $settings->coeff_km : 0.36;
+
+                            $contributoOrganizzativo =
+                                $settings && $settings->contributo_organizzativo !== null
+                                    ? (float) $settings->contributo_organizzativo
+                                    : 0.0;
+
+                            $speseVarieGara =
+                                $settings && $settings->spese_varie_gara !== null
+                                    ? (float) $settings->spese_varie_gara
+                                    : 0.0;
+
+                            $noteAppGara = $settings->apparecchiature_note ?? '';
+
+                            $daysCount = is_array($fullDays) ? count($fullDays) : 0;
+                        @endphp
+
+                        <style>
+                            .table-wrap {
+                                position: relative;
+                                max-height: 70vh;
+                                overflow: auto;
+                                max-width: 100%;
+                                border-top: 1px solid rgba(0, 0, 0, .08);
+                            }
+
+                            :root {
+                                --meta-h: 0px;
+                                --group-h: 0px;
+                            }
+
+                            .big-report-table {
+                                border-collapse: separate;
+                                border-spacing: 0;
+                            }
+
+                            .big-report-table thead tr.group-row th {
+                                position: sticky;
+                                top: var(--meta-h);
+                                z-index: 30;
+                                background: var(--bs-table-bg, #fff);
+                            }
+
+                            .big-report-table thead tr.header-row th {
+                                position: sticky;
+                                top: calc(var(--meta-h) + var(--group-h));
+                                z-index: 29;
+                                background: var(--bs-table-bg, #fff);
+                            }
+
+                            .big-report-table th,
+                            .big-report-table td {
+                                vertical-align: middle;
+                            }
+
+                            .num {
+                                text-align: end;
+                                font-variant-numeric: tabular-nums;
+                            }
+
+                            .nowrap {
+                                white-space: nowrap;
+                            }
+
+                            .cell-muted {
+                                color: #6c757d;
+                            }
+
+                            .big-report-table thead th {
+                                background: var(--bs-table-bg, #fff);
+                            }
+
+                            .sticky-col-1 {
+                                position: sticky;
+                                left: 0;
+                                z-index: 40;
+                                background: var(--bs-body-bg, #fff);
+                                box-shadow: 1px 0 0 rgba(0, 0, 0, .08);
+                            }
+
+                            .sticky-col-2 {
+                                position: sticky;
+                                left: 140px;
+                                z-index: 40;
+                                background: var(--bs-body-bg, #fff);
+                                box-shadow: 1px 0 0 rgba(0, 0, 0, .08);
+                            }
+
+                            .w-col-crono {
+                                width: 140px;
+                                min-width: 140px;
+                                max-width: 140px;
+                            }
+
+                            .w-col-dom {
+                                width: 170px;
+                                min-width: 170px;
+                                max-width: 170px;
+                            }
+
+                            .clip {
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                                white-space: nowrap;
+                            }
+
+                            .sep-right {
+                                border-right: 2px solid rgba(0, 0, 0, .08) !important;
+                            }
+
+                            .controls-bar {
+                                background: #fff;
+                                border: 1px solid rgba(0, 0, 0, .08);
+                                border-radius: .75rem;
+                                padding: .75rem;
+                            }
+
+                            .report-meta-bar {
+                                position: sticky;
+                                top: 0;
+                                z-index: 60;
+                                background: #fff;
+                                border-bottom: 1px solid rgba(0, 0, 0, .08);
+                                padding: .75rem;
+                            }
+
+                            @media print {
+                                @page {
+                                    size: landscape;
+                                    margin: 10mm;
+                                }
+
+                                .btn,
+                                .controls-bar,
+                                .alert {
+                                    display: none !important;
+                                }
+
+                                .table-wrap {
+                                    overflow: visible !important;
+                                    border: none !important;
+                                    max-height: none !important;
+                                }
+
+                                .big-report-table {
+                                    font-size: 9pt;
+                                    min-width: 0 !important;
+                                }
+
+                                .big-report-table thead th {
+                                    position: static !important;
+                                }
+
+                                .sticky-col-1,
+                                .sticky-col-2 {
+                                    position: static !important;
+                                    box-shadow: none !important;
+                                }
+
+                                .d-none.force-hide {
+                                    display: table-cell !important;
+                                }
+                            }
+                        </style>
+
+                        <div class="card tk-card">
+                            <div
+                                class="card-header tk-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div>
+                                    <i class="fas fa-table me-2"></i> Report Completo (Crono × Giorno)
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    {{-- <button class="btn btn-outline-secondary btn-sm" type="button"
+                                        onclick="window.print()">
+                                        <i class="fas fa-print me-1"></i> Stampa
+                                    </button> --}}
+
+                                    <a href="{{ route('timekeeper.racesList') }}"
+                                        class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-arrow-left me-1"></i> Torna alle gare
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <div class="controls-bar mb-3">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-12 col-lg-5">
+                                            <label for="reportSearch" class="form-label mb-1">Ricerca nella
+                                                tabella</label>
+                                            <input id="reportSearch" type="search" class="form-control"
+                                                placeholder="Es. Rossi, domicilio, note, luogo, ecc.">
+                                            <div class="form-text">Filtra le righe mentre scrivi (non modifica i dati).
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12 col-lg-7">
+                                            <div class="d-flex flex-wrap gap-3">
+                                                <div>
+                                                    <div class="fw-semibold mb-1">Mostra/Nascondi gruppi</div>
+
+                                                    <div class="d-flex flex-wrap gap-3">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgOrari" data-group="g-orari" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgOrari">Orari</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgOrd" data-group="g-ord" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgOrd">Ordinario</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgSpec" data-group="g-spec" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgSpec">Specialistico</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgDsc" data-group="g-dsc" checked>
+                                                            <label class="form-check-label" for="tgDsc">DSC</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgSegr" data-group="g-segr" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgSegr">Segreteria</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgSpese" data-group="g-spese" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgSpese">Spese</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgTot" data-group="g-totali" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgTot">Totali</label>
+                                                        </div>
+
+                                                        <div class="form-check">
+                                                            <input class="form-check-input col-toggle" type="checkbox"
+                                                                id="tgNote" data-group="g-note" checked>
+                                                            <label class="form-check-label"
+                                                                for="tgNote">Note/Allegati/Stato</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="ms-auto d-flex gap-2">
+                                                    <button class="btn btn-outline-secondary btn-sm" type="button"
+                                                        id="btnAllOn">Tutto ON</button>
+                                                    <button class="btn btn-outline-secondary btn-sm" type="button"
+                                                        id="btnEssentials">Solo essenziali</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- META BAR --}}
+                                <div class="report-meta-bar">
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <div>
+                                            <div class="fw-bold">Organizzatore / Ente:</div>
+                                            <div>{{ $race->ente_fatturazione ?? '—' }}</div>
+                                            @if (!empty($race->organizer_email))
+                                                <div class="text-muted small">{{ $race->organizer_email }}</div>
+                                            @endif
+                                        </div>
+
+                                        <div style="min-width:250px;">
+                                            <div class="fw-bold">Descrizione gara / Note:</div>
+                                            <div>{{ $race->note ?? '—' }}</div>
+                                        </div>
+
+                                        <div>
+                                            <div class="fw-bold">Luogo:</div>
+                                            <div>{{ $race->place ?? '—' }}</div>
+                                        </div>
+
+                                        <div>
+                                            <div class="fw-bold">Data inizio:</div>
+                                            <div>{{ ucwords($startDate->translatedFormat('l d F Y')) }}</div>
+                                        </div>
+
+                                        <div>
+                                            <div class="fw-bold">Data fine:</div>
+                                            <div>{{ ucwords($endDate->translatedFormat('l d F Y')) }}</div>
+                                        </div>
+
+                                        <div>
+                                            <div class="fw-bold">Tipologia gara:</div>
+                                            <div>{{ $race->type ?? '—' }}</div>
+                                        </div>
+
+                                        <div>
+                                            <div class="fw-bold">Giorni gara:</div>
+                                            <div>{{ (int) ($raceDaysCount ?? 1) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="card-body p-0">
+                                <div class="table-wrap" role="region" aria-label="Tabella report completo"
+                                    tabindex="0">
+                                    <table
+                                        class="table table-striped table-hover table-sm align-middle mb-0 big-report-table">
+                                        <thead class="table-light">
+                                            <tr class="group-row">
+                                                <th colspan="2" class="sep-right sticky-col-1 z-3"></th>
+
+                                                <th colspan="6" class="z-0 g-orari sep-right text-center">Orari
+                                                </th>
+                                                <th colspan="3" class="z-0 g-ord sep-right text-center">Ordinario
+                                                </th>
+                                                <th colspan="3" class="z-0 g-spec sep-right text-center">
+                                                    Specialistico</th>
+                                                <th colspan="1" class="z-0 g-orari sep-right text-center">Tot.
+                                                    servizio</th>
+
+                                                <th colspan="4" class="z-0 g-dsc sep-right text-center">DSC</th>
+                                                <th colspan="5" class="z-0 g-segr sep-right text-center">Segreteria
+                                                    (gara)</th>
+                                                <th colspan="6" class="z-0 g-spese sep-right text-center">Spese
+                                                    (crono)</th>
+
+                                                <th colspan="3" class="z-0 g-totali sep-right text-center">Totali
+                                                </th>
+                                                <th colspan="3" class="z-0 g-note text-center">Note / Allegati /
+                                                    Stato</th>
+                                            </tr>
+
+                                            <tr class="header-row">
+                                                <th class="z-3 sticky-col-1 w-col-crono">Crono</th>
+                                                <th class="z-3 sticky-col-2 w-col-dom sep-right">Domicilio</th>
+
+                                                <th class="z-0 g-orari nowrap">Giorno</th>
+                                                <th class="z-0 g-orari nowrap">Inizio matt.</th>
+                                                <th class="z-0 g-orari nowrap">Fine matt.</th>
+                                                <th class="z-0 g-orari nowrap">Inizio pom.</th>
+                                                <th class="z-0 g-orari nowrap">Fine pom.</th>
+                                                <th class="z-0 g-orari nowrap sep-right">Ore lav.</th>
+
+                                                <th class="z-0 g-ord nowrap">Ore ord.</th>
+                                                <th class="z-0 g-ord nowrap">Tar. ord.</th>
+                                                <th class="z-0 g-ord nowrap sep-right">Imp. ord.</th>
+
+                                                <th class="z-0 g-spec nowrap">Ore spec.</th>
+                                                <th class="z-0 g-spec nowrap">Tar. spec.</th>
+                                                <th class="z-0 g-spec nowrap sep-right">Imp. spec.</th>
+
+                                                <th class="z-0 g-orari nowrap sep-right">Tot. serv.(gg)</th>
+
+                                                <th class="z-0 g-dsc nowrap">Furgone</th>
+                                                <th class="z-0 g-dsc nowrap">Mancati pasti</th>
+                                                <th class="z-0 g-dsc nowrap">Imp. mancati</th>
+                                                <th class="z-0 g-dsc nowrap sep-right">Apparecchiature</th>
+
+                                                <th class="z-0 g-segr nowrap">Coeff Km</th>
+                                                <th class="z-0 g-segr nowrap">Van cost</th>
+                                                <th class="z-0 g-segr nowrap">Contributo org.</th>
+                                                <th class="z-0 g-segr nowrap">Spese varie</th>
+                                                <th class="z-0 g-segr nowrap sep-right">Note app.</th>
+
+                                                <th class="z-0 g-spese nowrap">Km</th>
+                                                <th class="z-0 g-spese nowrap">Imp. Km</th>
+                                                <th class="z-0 g-spese nowrap">Pedaggi</th>
+                                                <th class="z-0 g-spese nowrap">Vitto</th>
+                                                <th class="z-0 g-spese nowrap">Alloggio</th>
+                                                <th class="z-0 g-spese nowrap sep-right">Spese varie</th>
+
+                                                <th class="z-0 g-totali nowrap">Tot. parte gara</th>
+                                                <th class="z-0 g-totali nowrap">TotaleCrono</th>
+                                                <th class="z-0 g-totali nowrap sep-right">Grand total</th>
+
+                                                <th class="z-0 g-note nowrap">Note crono</th>
+                                                <th class="z-0 g-note nowrap">Allegati</th>
+                                                <th class="z-0 g-note nowrap">Stato</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody id="reportTbody">
+                                            @forelse ($fullRows as $row)
+                                                @php
+                                                    $u = $row['user'];
+                                                    $entry = $row['entry'];
+
+                                                    $sysRace = $row['sysRace'] ?? [];
+
+                                                    $totalRacePart = (float) ($sysRace['totalRacePart'] ?? 0);
+                                                    $totaleCrono = (float) ($row['totaleCrono'] ?? 0);
+                                                    $grandTotal = (float) ($row['grandTotal'] ?? 0);
+
+                                                    $kmAmount = (float) ($sysRace['kmAmount'] ?? 0);
+
+                                                    $rowspan = max(1, $daysCount);
+                                                @endphp
+
+                                                @foreach ($fullDays as $i => $day)
+                                                    @php
+                                                        $drow = $row['perDay'][$day] ?? null;
+
+                                                        $dscDay = $drow['dscDay'] ?? null;
+                                                        $workedHours = (float) ($drow['workedHours'] ?? 0);
+
+                                                        $service = $drow['service'] ?? [];
+                                                        $ordHours = (float) ($service['ordHours'] ?? 0);
+                                                        $ordRate = (float) ($service['ordRate'] ?? 0);
+                                                        $ordAmount = (float) ($service['ordAmount'] ?? 0);
+
+                                                        $specHours = (float) ($service['specHours'] ?? 0);
+                                                        $specRate = (float) ($service['specRate'] ?? 0);
+                                                        $specAmount = (float) ($service['specAmount'] ?? 0);
+
+                                                        $totalServiceDay = (float) ($service['totalService'] ?? 0);
+
+                                                        $dayLabel = ucwords(
+                                                            \Carbon\Carbon::parse($day)->translatedFormat('l d F'),
+                                                        );
+                                                    @endphp
+
+                                                    <tr class="report-row">
+                                                        @if ($i === 0)
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="fw-bold sticky-col-1 w-col-crono clip"
+                                                                title="{{ $u->surname }} {{ $u->name }}">
+                                                                {{ $u->surname }} {{ $u->name }}
+                                                            </td>
+
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="sticky-col-2 w-col-dom clip sep-right"
+                                                                title="{{ $u->domicile ?? '' }}">
+                                                                {{ $u->domicile ?? '—' }}
+                                                            </td>
+                                                        @endif
+
+                                                        <td class="g-orari nowrap">{{ $dayLabel }}</td>
+                                                        <td class="g-orari nowrap">
+                                                            {{ $dscDay?->morning_start ?? '—' }}</td>
+                                                        <td class="g-orari nowrap">{{ $dscDay?->morning_end ?? '—' }}
+                                                        </td>
+                                                        <td class="g-orari nowrap">
+                                                            {{ $dscDay?->afternoon_start ?? '—' }}</td>
+                                                        <td class="g-orari nowrap">
+                                                            {{ $dscDay?->afternoon_end ?? '—' }}</td>
+                                                        <td class="g-orari fw-semibold num sep-right">
+                                                            {{ number_format($workedHours, 2) }}</td>
+
+                                                        <td class="g-ord num">{{ number_format($ordHours, 2) }}</td>
+                                                        <td class="g-ord num">{{ number_format($ordRate, 2) }}</td>
+                                                        <td class="g-ord num sep-right">
+                                                            {{ number_format($ordAmount, 2) }}</td>
+
+                                                        <td class="g-spec num">{{ number_format($specHours, 2) }}</td>
+                                                        <td class="g-spec num">{{ number_format($specRate, 2) }}</td>
+                                                        <td class="g-spec num sep-right">
+                                                            {{ number_format($specAmount, 2) }}</td>
+
+                                                        <td class="g-orari fw-semibold num sep-right">
+                                                            {{ number_format($totalServiceDay, 2) }}</td>
+
+                                                        @if ($i === 0)
+                                                            <td rowspan="{{ $rowspan }}" class="g-dsc nowrap">
+                                                                {{ $vanNeeded ? 'Sì' : 'No' }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-dsc num">
+                                                                {{ $missedMeals }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-dsc num">
+                                                                {{ number_format($missedMealsAmount, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="g-dsc sep-right">
+                                                                @if (!empty($appsDsc))
+                                                                    {{ implode(', ', $appsDsc) }}
+                                                                @else
+                                                                    <span class="cell-muted">—</span>
+                                                                @endif
+                                                            </td>
+
+                                                            <td rowspan="{{ $rowspan }}" class="g-segr num">
+                                                                {{ number_format($coeffKm, 4) }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-segr num">
+                                                                {{ number_format($vanCostRace, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-segr num">
+                                                                {{ number_format($contributoOrganizzativo, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-segr num">
+                                                                {{ number_format($speseVarieGara, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="g-segr sep-right">
+                                                                {{ $noteAppGara !== '' ? $noteAppGara : '—' }}
+                                                            </td>
+
+                                                            <td rowspan="{{ $rowspan }}" class="g-spese num">
+                                                                {{ number_format((float) ($entry->km ?? 0), 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-spese num">
+                                                                {{ number_format($kmAmount, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-spese num">
+                                                                {{ number_format((float) ($entry->pedaggi ?? 0), 2) }}
+                                                            </td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-spese num">
+                                                                {{ number_format((float) ($entry->vitto ?? 0), 2) }}
+                                                            </td>
+                                                            <td rowspan="{{ $rowspan }}" class="g-spese num">
+                                                                {{ number_format((float) ($entry->alloggio ?? 0), 2) }}
+                                                            </td>
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="g-spese num sep-right">
+                                                                {{ number_format((float) ($entry->spese_varie ?? 0), 2) }}
+                                                            </td>
+
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="g-totali fw-semibold num">
+                                                                {{ number_format($totalRacePart, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="g-totali fw-semibold num">
+                                                                {{ number_format($totaleCrono, 2) }}</td>
+                                                            <td rowspan="{{ $rowspan }}"
+                                                                class="g-totali fw-bold num sep-right">
+                                                                {{ number_format($grandTotal, 2) }}</td>
+
+                                                            <td rowspan="{{ $rowspan }}" class="g-note">
+                                                                {{ $entry->note ?? '—' }}</td>
+
+                                                            <td rowspan="{{ $rowspan }}" class="g-note">
+                                                                @if ($entry->attachments && $entry->attachments->count())
+                                                                    <ul class="list-unstyled mb-0">
+                                                                        @foreach ($entry->attachments as $a)
+                                                                            <li class="mb-1">
+                                                                                <a href="{{ asset('storage/' . $a->file_path) }}"
+                                                                                    target="_blank" rel="noopener">
+                                                                                    {{ $a->original_name }}
+                                                                                </a>
+                                                                            </li>
+                                                                        @endforeach
+                                                                    </ul>
+                                                                @else
+                                                                    <span class="text-muted">—</span>
+                                                                @endif
+                                                            </td>
+
+                                                            <td rowspan="{{ $rowspan }}" class="g-note nowrap">
+                                                                @if ($entry->confirmed)
+                                                                    <span class="badge bg-success">
+                                                                        <i class="fas fa-check-circle me-1"></i>
+                                                                        Confermato
+                                                                    </span>
+                                                                @else
+                                                                    <span class="badge bg-secondary">Non
+                                                                        confermato</span>
+                                                                @endif
+                                                            </td>
+                                                        @endif
+                                                    </tr>
+                                                @endforeach
+                                            @empty
+                                                <tr>
+                                                    <td colspan="36" class="text-center text-muted p-4">
+                                                        Nessun dato disponibile.
+                                                    </td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="p-3 small text-muted">
+                                    Regole: Ordinario = prime 4 ore 30€, poi +6€/h. Specialistico = prime 4 ore 40€, poi
+                                    +10€/h.
+                                </div>
+                            </div>
+                        </div>
+
+                        <script>
+                            (function() {
+                                const search = document.getElementById('reportSearch');
+                                const tbody = document.getElementById('reportTbody');
+
+                                function normalize(s) {
+                                    return (s || '').toString().toLowerCase().trim();
+                                }
+
+                                if (search && tbody) {
+                                    search.addEventListener('input', function() {
+                                        const q = normalize(search.value);
+                                        const rows = tbody.querySelectorAll('tr.report-row');
+                                        rows.forEach(tr => {
+                                            const text = normalize(tr.innerText);
+                                            tr.style.display = (!q || text.includes(q)) ? '' : 'none';
+                                        });
+                                    });
+                                }
+
+                                const toggles = document.querySelectorAll('.col-toggle');
+
+                                function setGroupVisible(groupClass, visible) {
+                                    const cells = document.querySelectorAll('.' + groupClass);
+                                    cells.forEach(el => {
+                                        if (!visible) {
+                                            el.classList.add('d-none', 'force-hide');
+                                        } else {
+                                            el.classList.remove('d-none', 'force-hide');
+                                        }
+                                    });
+                                }
+
+                                toggles.forEach(tg => {
+                                    tg.addEventListener('change', () => {
+                                        const group = tg.getAttribute('data-group');
+                                        setGroupVisible(group, tg.checked);
+                                    });
+                                });
+
+                                const btnAllOn = document.getElementById('btnAllOn');
+                                const btnEssentials = document.getElementById('btnEssentials');
+
+                                if (btnAllOn) {
+                                    btnAllOn.addEventListener('click', () => {
+                                        toggles.forEach(tg => {
+                                            tg.checked = true;
+                                            setGroupVisible(tg.getAttribute('data-group'), true);
+                                        });
+                                    });
+                                }
+
+                                if (btnEssentials) {
+                                    btnEssentials.addEventListener('click', () => {
+                                        toggles.forEach(tg => {
+                                            const group = tg.getAttribute('data-group');
+                                            const keep = (group === 'g-orari' || group === 'g-totali' || group ===
+                                                'g-note');
+                                            tg.checked = keep;
+                                            setGroupVisible(group, keep);
+                                        });
+                                    });
+                                }
+                            })();
+                        </script>
+                    @endif
+
+                @endif
 
             </div>
         </div>
     </main>
-
-    {{-- Toggle km box in base al transport_mode (solo DSC) --}}
-    @if (auth()->user()->isLeaderOf($race))
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const tmKm = document.getElementById('tm_km');
-                const tmTr = document.getElementById('tm_trasp');
-                const box = document.getElementById('kmBox');
-
-                function toggle() {
-                    box.style.display = (tmKm && tmKm.checked) ? 'block' : 'none';
-                }
-                if (tmKm) tmKm.addEventListener('change', toggle);
-                if (tmTr) tmTr.addEventListener('change', toggle);
-                toggle();
-            });
-        </script>
-    @endif
 </x-layout>

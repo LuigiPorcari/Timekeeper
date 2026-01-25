@@ -26,6 +26,11 @@ class User extends Authenticatable
         return $this->belongsToMany(\App\Models\Availability::class)
             ->withPivot(['morning', 'afternoon', 'trasferta', 'reperibilita']);
     }
+    public function reportEntries()
+    {
+        return $this->hasMany(\App\Models\ReportEntry::class);
+    }
+
     public function records()
     {
         return $this->hasMany(Record::class);

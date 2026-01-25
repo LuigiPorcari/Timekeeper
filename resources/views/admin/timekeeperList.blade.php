@@ -121,11 +121,11 @@
 
                                     {{-- Report --}}
                                     <td class="text-center">
-                                        <a href="{{ route('admin.timekeeperReport', $timekeeper) }}"
-                                            class="btn btn-sm btn-ficr"
-                                            aria-label="Visualizza report di {{ $timekeeper->name }} {{ $timekeeper->surname }}">
-                                            Report
+                                        <a class="btn btn-sm btn-ficr"
+                                            href="{{ route('admin.timekeeperReportFullStack', ['user' => $timekeeper->id]) }}">
+                                            Report Full (stack)
                                         </a>
+
                                     </td>
                                 </tr>
                             @empty
