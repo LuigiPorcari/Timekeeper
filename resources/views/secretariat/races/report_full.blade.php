@@ -6,7 +6,7 @@
             <div class="col-12 col-xl-11">
 
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                    @if (Auth::user()->is_segretarian)
+                    @if (Auth::user()->is_secretariat)
                     <a href="{{ route('secretariat.races.reportFullExcel', $race) }}" class="btn btn-success">
                         <i class="fas fa-file-excel me-1"></i> Esporta Excel (Prima Nota)
                     </a>
