@@ -210,7 +210,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach ($rows as $r)
+                                            @forelse ($rowsForDayAdmin as $r)
                                                 @php
                                                     $uid = $r['user']->id;
                                                     $dayRow = $adminDay->get($uid);
@@ -236,8 +236,16 @@
                                                         {{ $dayRow?->updated_at ? $dayRow->updated_at->format('d/m/Y H:i') : '—' }}
                                                     </td>
                                                 </tr>
-                                            @endforeach
+                                            @empty
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted p-4">
+                                                        Nessun cronometrista risulta assegnato dal DSC per questa
+                                                        giornata.
+                                                    </td>
+                                                </tr>
+                                            @endforelse
                                         </tbody>
+
                                     </table>
                                 </div>
 

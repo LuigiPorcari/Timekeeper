@@ -1,13 +1,19 @@
 {{-- resources/views/secretariat/races/report_full.blade.php --}}
 
-<x-layout documentTitle="Report Completo — Segreteria">
+<x-layout documentTitle="Report Completo">
     <main class="container-fluid mt-5 pt-5">
         <div class="row justify-content-center">
             <div class="col-12 col-xl-11">
 
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                    @if (Auth::user()->is_segretarian)
+                    <a href="{{ route('secretariat.races.reportFullExcel', $race) }}" class="btn btn-success">
+                        <i class="fas fa-file-excel me-1"></i> Esporta Excel (Prima Nota)
+                    </a>
+                    @endif
+
                     <div>
-                        <h1 class="mb-1">Report Completo — Segreteria</h1>
+                        <h1 class="mb-1">Report Completo</h1>
                         <div class="text-muted">
                             Gara: <strong>{{ $race->name }}</strong>
                         </div>

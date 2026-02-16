@@ -16,6 +16,11 @@ use App\Models\ReportDayAdmin;
 use Illuminate\Support\Carbon;
 use App\Services\ReportCalculator;
 use App\Models\ReportAdminRaceSettings;
+use App\Services\RaceReportFullBuilder;
+use App\Services\ReportPrimaNotaExcelExporter;
+
+
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class SecretariatController extends Controller
 {
@@ -82,7 +87,7 @@ class SecretariatController extends Controller
         // Settings segreteria (una volta per gara)
         $settings = ReportAdminRaceSettings::where('race_id', $race->id)->first();
 
-        // Crono assegnati
+        // Crono assegnati alla gara
         $timekeepers = $race->users()
             ->select('users.id', 'users.name', 'users.surname', 'users.domicile')
             ->orderBy('surname')
@@ -97,7 +102,7 @@ class SecretariatController extends Controller
         // DSC gara
         $dscRace = ReportRaceDsc::where('race_id', $race->id)->first();
 
-        // Giorni gara + selezione giorno (serve per: orari DSC + ore segreteria)
+        // Giorni gara + selezione giorno
         $start = Carbon::parse($race->date_of_race)->startOfDay();
         $end = $race->date_end ? Carbon::parse($race->date_end)->startOfDay() : $start->copy();
         if ($end->lt($start)) {
@@ -110,24 +115,50 @@ class SecretariatController extends Controller
         }
         $selectedDay = request('day') ?? ($days[0] ?? null);
 
-        // Orari DSC per quel giorno (una riga per race + day)
+        // ✅ CRONO COINVOLTI IN QUESTA GIORNATA (scelti dal DSC)
+        $involvedUserIds = [];
+        if ($selectedDay) {
+            $involvedUserIds = ReportDayDsc::where('race_id', $race->id)
+                ->where('work_date', $selectedDay)
+                ->whereNotNull('user_id')          // importante se in tabella hai anche righe "globali"
+                ->pluck('user_id')
+                ->map(fn($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        // ✅ Orari DSC del giorno:
+        // nel tuo progetto "dscDayHours" è una riga unica per race+day (quella globale)
+        // se ora la tabella è diventata per-user, allora per mostrare gli orari globali devi decidere:
+        // - o hai una riga "globale" (user_id null), oppure
+        // - prendi la prima riga di quel giorno.
         $dscDayHours = null;
         if ($selectedDay) {
             $dscDayHours = ReportDayDsc::where('race_id', $race->id)
                 ->where('work_date', $selectedDay)
+                ->whereNull('user_id') // ✅ se hai deciso di salvare la riga globale con user_id NULL
                 ->first();
+
+            // fallback: se non esiste globale, prendi la prima riga del giorno
+            if (!$dscDayHours) {
+                $dscDayHours = ReportDayDsc::where('race_id', $race->id)
+                    ->where('work_date', $selectedDay)
+                    ->first();
+            }
         }
 
-        // Ore segreteria per quel giorno (una riga per race+day+user)
+        // ✅ Ore segreteria (solo crono coinvolti)
         $adminDay = collect();
-        if ($selectedDay) {
+        if ($selectedDay && !empty($involvedUserIds)) {
             $adminDay = ReportDayAdmin::where('race_id', $race->id)
                 ->where('work_date', $selectedDay)
+                ->whereIn('user_id', $involvedUserIds)
                 ->get()
                 ->keyBy('user_id');
         }
 
-        // Righe riepilogo “gara” (calcolo sistema)
+        // ✅ Righe riepilogo “gara” (questa parte può restare su TUTTI i crono, perché è riepilogo gara)
         $rows = $timekeepers->map(function ($tk) use ($race, $entries, $dscRace, $settings, $calc) {
             $entry = $entries->get($tk->id);
 
@@ -147,8 +178,6 @@ class SecretariatController extends Controller
                 $entry->setRelation('attachments', collect());
             }
 
-            // ✅ Passiamo null come $admin (non usiamo più van_cost da dayAdmin “a caso”)
-            // e usiamo $settings per coeff_km (+ van_cost lo gestiamo dentro il calculator)
             $sys = $calc->computeRowForDay($race, $entry, $dscRace, null, $settings);
 
             return [
@@ -157,6 +186,12 @@ class SecretariatController extends Controller
                 'sys' => $sys,
             ];
         });
+
+        // ✅ RIGHE PER TABELLA SEGRETERIA "Ore per giornata":
+        // solo crono coinvolti nel giorno
+        $rowsForDayAdmin = $rows->filter(function ($r) use ($involvedUserIds) {
+            return in_array((int) $r['user']->id, $involvedUserIds, true);
+        })->values();
 
         return view('secretariat.races.report', [
             'race' => $race,
@@ -170,9 +205,12 @@ class SecretariatController extends Controller
             'settings' => $settings,
             'adminDay' => $adminDay,
 
-            'rows' => $rows,
+            'rows' => $rows,                       // riepilogo gara (tutti)
+            'rowsForDayAdmin' => $rowsForDayAdmin, // ✅ segreteria ore (solo coinvolti)
+            'involvedUserIds' => $involvedUserIds, // opzionale (debug / UI)
         ]);
     }
+
 
     /**
      * Salva/modifica impostazioni segreteria (una volta per gara)
@@ -228,20 +266,32 @@ class SecretariatController extends Controller
             return back()->with('error', 'La giornata selezionata non rientra nel periodo della gara.');
         }
 
+        // ✅ userId coinvolti nel giorno (scelti DSC)
+        $involvedUserIds = ReportDayDsc::where('race_id', $race->id)
+            ->where('work_date', $workDate)
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($involvedUserIds)) {
+            return redirect()
+                ->route('secretariat.races.report', ['race' => $race->id, 'day' => $workDate])
+                ->with('error', 'Nessun cronometrista risulta assegnato dal DSC per questa giornata.');
+        }
+
         $specArr = $validated['hours_special_service'] ?? [];
         $ordArr = $validated['hours_ordinary_service'] ?? [];
 
-        $userIds = array_unique(array_merge(array_keys($specArr), array_keys($ordArr)));
+        $userIdsFromForm = array_unique(array_merge(array_keys($specArr), array_keys($ordArr)));
+        $userIdsFromForm = array_map('intval', $userIdsFromForm);
+
+        // ✅ filtro: accetto SOLO quelli coinvolti
+        $userIds = array_values(array_intersect($userIdsFromForm, $involvedUserIds));
 
         foreach ($userIds as $uid) {
-            $uid = (int) $uid;
-
-            // sicurezza: deve essere assegnato alla gara
-            $assigned = $race->users()->where('users.id', $uid)->exists();
-            if (!$assigned) {
-                continue;
-            }
-
             ReportDayAdmin::updateOrCreate(
                 [
                     'race_id' => $race->id,
@@ -255,12 +305,20 @@ class SecretariatController extends Controller
             );
         }
 
+        // ✅ opzionale ma consigliato:
+        // se un crono NON è più coinvolto (DSC lo ha tolto), elimino eventuali ore segreteria vecchie
+        ReportDayAdmin::where('race_id', $race->id)
+            ->where('work_date', $workDate)
+            ->whereNotIn('user_id', $involvedUserIds)
+            ->delete();
+
         return redirect()
             ->route('secretariat.races.report', ['race' => $race->id, 'day' => $workDate])
             ->with('success', 'Ore Segreteria salvate/modificate per la giornata selezionata.');
     }
 
-    public function raceReportFull(Race $race, ReportCalculator $calc, \App\Services\RaceReportFullBuilder $builder)
+
+    public function raceReportFull(Race $race, ReportCalculator $calc, RaceReportFullBuilder $builder)
     {
         $data = $builder->build($race, $calc);
 
@@ -270,6 +328,33 @@ class SecretariatController extends Controller
         return view('secretariat.races.report_full', $data);
     }
 
+    public function exportReportFullExcel(
+        Race $race,
+        RaceReportFullBuilder $builder,
+        ReportCalculator $calc,
+        ReportPrimaNotaExcelExporter $exporter
+    ) {
+        $data = $builder->build($race, $calc);
 
+        $templatePath = storage_path('app/templates/FOGLIO_PRIMA_NOTA.xlsx');
+        if (!file_exists($templatePath)) {
+            abort(500, 'Template Excel non trovato: ' . $templatePath);
+        }
+
+        $spreadsheet = $exporter->buildFromTemplate($templatePath, $race, $data);
+
+        $filename = 'prima_nota_gara_' . $race->id . '.xlsx';
+        $tmpDir = storage_path('app/tmp');
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
+        $tmpPath = $tmpDir . DIRECTORY_SEPARATOR . $filename;
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tmpPath);
+
+        return response()->download($tmpPath, $filename)->deleteFileAfterSend(true);
+    }
 
 }

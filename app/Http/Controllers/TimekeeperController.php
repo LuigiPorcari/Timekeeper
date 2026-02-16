@@ -174,7 +174,7 @@ class TimekeeperController extends Controller
         // DSC gara (una volta per gara)
         $dscRace = ReportRaceDsc::where('race_id', $race->id)->first();
 
-        // Giorni gara (servono per DSC orari giornalieri)
+        // Giorni gara
         $start = Carbon::parse($race->date_of_race)->startOfDay();
         $end = $race->date_end ? Carbon::parse($race->date_end)->startOfDay() : $start->copy();
         if ($end->lt($start)) {
@@ -188,12 +188,34 @@ class TimekeeperController extends Controller
 
         $selectedDay = request('day') ?? ($days[0] ?? null);
 
-        // DSC orari per giornata (UNA riga per race+day)
-        $dscDayHours = null;
+        // ==========================================================
+        // DSC ORARI GIORNALIERI (NUOVO): righe per race+day+user_id
+        // ==========================================================
+        $dscDayHours = null;               // riga campione per precompilare gli orari
+        $selectedDayTimekeepers = [];      // lista user_id selezionati per quel giorno
+        $lockedHours = false;              // true se anche solo una riga del giorno è confermata
+        $hasAnyDayRows = false;            // true se esistono righe per quel giorno
+
         if ($selectedDay) {
-            $dscDayHours = ReportDayDsc::where('race_id', $race->id)
+            $dayRows = ReportDayDsc::where('race_id', $race->id)
                 ->where('work_date', $selectedDay)
-                ->first();
+                ->get();
+
+            $hasAnyDayRows = $dayRows->isNotEmpty();
+
+            // crono selezionati per la giornata
+            $selectedDayTimekeepers = $dayRows->pluck('user_id')
+                ->filter()
+                ->values()
+                ->all();
+
+            // prendo una riga “campione” per precompilare gli orari nella form
+            $dscDayHours = $dayRows->first();
+
+            // se una qualsiasi riga è confermata, blocco modifiche (più semplice e coerente)
+            $lockedHours = $dayRows->contains(function ($r) {
+                return (bool) ($r->confirmed ?? false);
+            });
         }
 
         // Settings gara
@@ -273,10 +295,13 @@ class TimekeeperController extends Controller
             // DSC
             'dscRace' => $dscRace,
 
-            // DSC ore giornaliere
+            // DSC ore giornaliere + assegnazioni giornata
             'days' => $days,
             'selectedDay' => $selectedDay,
             'dscDayHours' => $dscDayHours,
+            'selectedDayTimekeepers' => $selectedDayTimekeepers,
+            'lockedHours' => $lockedHours,
+            'hasAnyDayRows' => $hasAnyDayRows,
 
             // settings
             'settings' => $settings,
@@ -287,6 +312,7 @@ class TimekeeperController extends Controller
             'raceDaysCount' => $raceDaysCount,
         ]);
     }
+
 
 
 
@@ -722,6 +748,9 @@ class TimekeeperController extends Controller
 
         $validated = $request->validate([
             'day' => 'required|date',
+            'timekeepers' => 'nullable|array',
+            'timekeepers.*' => 'integer|exists:users,id',
+
             'morning_start' => 'nullable|date_format:H:i',
             'morning_end' => 'nullable|date_format:H:i',
             'afternoon_start' => 'nullable|date_format:H:i',
@@ -730,7 +759,7 @@ class TimekeeperController extends Controller
 
         $workDate = Carbon::parse($validated['day'])->toDateString();
 
-        // vincolo: deve essere dentro il range gara
+        // range gara
         $start = Carbon::parse($race->date_of_race)->toDateString();
         $end = $race->date_end ? Carbon::parse($race->date_end)->toDateString() : $start;
         if ($end < $start) {
@@ -739,37 +768,62 @@ class TimekeeperController extends Controller
         if ($workDate < $start || $workDate > $end) {
             return back()->with('error', 'La giornata selezionata non rientra nel periodo della gara.');
         }
-        $existing = ReportDayDsc::where('race_id', $race->id)
-            ->where('work_date', $workDate)
-            ->first();
 
-        if ($existing && $existing->confirmed) {
-            return redirect()
-                ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
-                ->with('error', 'Gli orari DSC per questa giornata sono confermati e non possono essere modificati.');
+        // lista selezionata (può essere vuota)
+        $selectedIds = array_values(array_unique(array_map('intval', $validated['timekeepers'] ?? [])));
+
+        // sicurezza: devono essere assegnati alla gara
+        if (!empty($selectedIds)) {
+            $assignedCount = $race->users()->whereIn('users.id', $selectedIds)->count();
+            if ($assignedCount !== count($selectedIds)) {
+                return back()->with('error', 'Hai selezionato uno o più crono non assegnati a questa gara.');
+            }
         }
 
-        // Qui salviamo/aggiorniamo UNA SOLA riga per race_id + work_date (vale per tutti)
-        ReportDayDsc::updateOrCreate(
-            [
-                'race_id' => $race->id,
-                'work_date' => $workDate,
-            ],
-            [
-                // se vuoi, puoi salvare anche user_id = leader che ha inserito (opzionale)
-                'user_id' => $user->id,
+        // righe esistenti per quel giorno
+        $existingRows = ReportDayDsc::where('race_id', $race->id)
+            ->where('work_date', $workDate)
+            ->get();
 
-                'morning_start' => $validated['morning_start'] ?? null,
-                'morning_end' => $validated['morning_end'] ?? null,
-                'afternoon_start' => $validated['afternoon_start'] ?? null,
-                'afternoon_end' => $validated['afternoon_end'] ?? null,
-            ]
-        );
+        // se QUALSIASI riga di quel giorno è confermata, non permetto modifiche (scelta semplice e sicura)
+        if ($existingRows->contains(fn($r) => (bool) ($r->confirmed ?? false))) {
+            return redirect()
+                ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
+                ->with('error', 'Gli orari/assegnazioni DSC per questa giornata sono confermati e non possono essere modificati.');
+        }
+
+        DB::transaction(function () use ($race, $workDate, $selectedIds, $validated, $user) {
+
+            // 1) cancello tutte le righe di quel giorno (visto che non sono confermate)
+            ReportDayDsc::where('race_id', $race->id)
+                ->where('work_date', $workDate)
+                ->delete();
+
+            // 2) ricreo una riga per ogni crono selezionato
+            foreach ($selectedIds as $tkId) {
+                ReportDayDsc::create([
+                    'race_id' => $race->id,
+                    'work_date' => $workDate,
+                    'user_id' => $tkId, // IMPORTANTISSIMO: assegnazione giornata
+
+                    // opzionale: memorizzo chi ha inserito (leader), se ti serve tienilo, altrimenti toglilo
+                    // 'created_by' => $user->id,  // solo se hai la colonna
+
+                    'morning_start' => $validated['morning_start'] ?? null,
+                    'morning_end' => $validated['morning_end'] ?? null,
+                    'afternoon_start' => $validated['afternoon_start'] ?? null,
+                    'afternoon_end' => $validated['afternoon_end'] ?? null,
+
+                    'confirmed' => false,
+                ]);
+            }
+        });
 
         return redirect()
             ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
-            ->with('success', 'Orari DSC salvati per la giornata selezionata.');
+            ->with('success', 'Orari/assegnazioni DSC salvati per la giornata selezionata.');
     }
+
     public function confirmDscDayHours(Request $request, Race $race)
     {
         $user = auth()->user();
@@ -783,7 +837,7 @@ class TimekeeperController extends Controller
 
         $workDate = Carbon::parse($validated['day'])->toDateString();
 
-        // Deve essere nel range gara
+        // range gara
         $start = Carbon::parse($race->date_of_race)->toDateString();
         $end = $race->date_end ? Carbon::parse($race->date_end)->toDateString() : $start;
         if ($end < $start) {
@@ -793,26 +847,21 @@ class TimekeeperController extends Controller
             return back()->with('error', 'La giornata selezionata non rientra nel periodo della gara.');
         }
 
-        $row = ReportDayDsc::where('race_id', $race->id)
-            ->where('work_date', $workDate)
-            ->first();
+        $q = ReportDayDsc::where('race_id', $race->id)
+            ->where('work_date', $workDate);
 
-        if (!$row) {
-            return back()->with('error', 'Non ci sono orari DSC da confermare per questa giornata.');
+        if (!$q->exists()) {
+            return back()->with('error', 'Non ci sono orari/assegnazioni DSC da confermare per questa giornata.');
         }
 
-        if ($row->confirmed) {
-            return redirect()
-                ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
-                ->with('success', 'Orari DSC già confermati per questa giornata.');
-        }
-
-        $row->update(['confirmed' => true]);
+        // conferma in massa tutte le righe del giorno
+        $q->update(['confirmed' => true]);
 
         return redirect()
             ->route('records.manage', ['race' => $race->id, 'day' => $workDate])
-            ->with('success', 'Orari DSC confermati per la giornata selezionata.');
+            ->with('success', 'Orari/assegnazioni DSC confermati per la giornata selezionata.');
     }
+
     public function confirmMyEntry(Request $request, Race $race)
     {
         $user = auth()->user();
@@ -836,33 +885,33 @@ class TimekeeperController extends Controller
             ->with('success', 'Report crono confermato. Non potrai più modificarlo.');
     }
 
-public function deleteMyEntry(Request $request, Race $race)
-{
-    $user = auth()->user();
+    public function deleteMyEntry(Request $request, Race $race)
+    {
+        $user = auth()->user();
 
-    $entry = ReportEntry::where('race_id', $race->id)
-        ->where('user_id', $user->id)
-        ->with('attachments')
-        ->first();
+        $entry = ReportEntry::where('race_id', $race->id)
+            ->where('user_id', $user->id)
+            ->with('attachments')
+            ->first();
 
-    if (!$entry) {
-        return back()->with('error', 'Non c’è nessun report da eliminare.');
+        if (!$entry) {
+            return back()->with('error', 'Non c’è nessun report da eliminare.');
+        }
+
+        if ($entry->confirmed) {
+            return back()->with('error', 'Questo report è confermato e non può essere eliminato.');
+        }
+
+        // Se vuoi eliminare anche i file fisici dallo storage, dimmelo e te lo aggiungo.
+        // Qui elimino solo i record allegati e il report.
+        $entry->attachments()->delete();
+        $entry->delete();
+
+        $day = $request->input('day') ?? request('day');
+
+        return redirect()
+            ->route('records.manage', ['race' => $race->id, 'day' => $day])
+            ->with('success', 'Report eliminato con successo.');
     }
-
-    if ($entry->confirmed) {
-        return back()->with('error', 'Questo report è confermato e non può essere eliminato.');
-    }
-
-    // Se vuoi eliminare anche i file fisici dallo storage, dimmelo e te lo aggiungo.
-    // Qui elimino solo i record allegati e il report.
-    $entry->attachments()->delete();
-    $entry->delete();
-
-    $day = $request->input('day') ?? request('day');
-
-    return redirect()
-        ->route('records.manage', ['race' => $race->id, 'day' => $day])
-        ->with('success', 'Report eliminato con successo.');
-}
 
 }

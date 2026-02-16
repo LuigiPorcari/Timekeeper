@@ -40,11 +40,6 @@ class ReportCalculator
 
     /**
      * Totali "per gara" (una riga per crono).
-     * Include:
-     * - kmAmount
-     * - spese crono (pedaggi/vitto/alloggio/spese_varie)
-     * - mancati pasti * 15 (DSC gara)
-     * - vanCost (se van_needed, preso da settings gara)
      */
     public function computeRowForRace(
         Race $race,
@@ -64,7 +59,6 @@ class ReportCalculator
         $alloggio = (float) ($entry->alloggio ?? 0);
         $speseVarie = (float) ($entry->spese_varie ?? 0);
 
-        // Importo furgone (per gara) preso da settings gara
         $vanCost = 0.00;
         if (($dscRace?->van_needed ?? false) && $settings?->van_cost !== null) {
             $vanCost = (float) $settings->van_cost;
@@ -84,7 +78,6 @@ class ReportCalculator
 
             'vanCostApplied' => round($vanCost, 2),
 
-            // Totale "parte gara" (tutto ciò che non è giornaliero)
             'totalRacePart' => $totalRacePart,
         ];
     }
@@ -119,8 +112,9 @@ class ReportCalculator
     }
 
     /**
-     * Ore lavorate (per giornata) da orari DSC:
-     * (fine mattina - inizio mattina) + (fine pomeriggio - inizio pomeriggio)
+     * Ore lavorate (per giornata) da orari DSC.
+     * ✅ Con la nuova logica, $dscDayHours è la riga per (race + day + user).
+     * Se non esiste => 0.
      */
     public function computeWorkedHoursForDay(?ReportDayDsc $dscDayHours): float
     {
@@ -144,7 +138,6 @@ class ReportCalculator
             $start = trim($start);
             $end = trim($end);
 
-            // ✅ supporta sia "10:58" che "10:58:00"
             $formatStart = (substr_count($start, ':') === 2) ? 'H:i:s' : 'H:i';
             $formatEnd = (substr_count($end, ':') === 2) ? 'H:i:s' : 'H:i';
 
@@ -161,12 +154,6 @@ class ReportCalculator
         }
     }
 
-
-    /**
-     * ✅ Importo Ordinario a scaglioni:
-     * prime 4 ore = 30€/h
-     * oltre 4 ore = 36€/h (30 + 6)
-     */
     private function amountOrdinary(float $hours): float
     {
         if ($hours <= 0)
@@ -178,11 +165,6 @@ class ReportCalculator
         return round(($first * 30.0) + ($extra * 36.0), 2);
     }
 
-    /**
-     * ✅ Importo Specialistico a scaglioni:
-     * prime 4 ore = 40€/h
-     * oltre 4 ore = 50€/h (40 + 10)
-     */
     private function amountSpecial(float $hours): float
     {
         if ($hours <= 0)
@@ -194,10 +176,6 @@ class ReportCalculator
         return round(($first * 40.0) + ($extra * 50.0), 2);
     }
 
-    /**
-     * Totale servizio per giornata, per crono:
-     * = importoOrd (scaglioni) + importoSpec (scaglioni)
-     */
     public function computeServiceTotalForDay(?ReportDayAdmin $adminDayRow): array
     {
         $ordHours = (float) ($adminDayRow?->hours_ordinary_service ?? 0.0);
@@ -206,7 +184,6 @@ class ReportCalculator
         $ordAmount = $this->amountOrdinary($ordHours);
         $specAmount = $this->amountSpecial($specHours);
 
-        // “tariffa” mostrabile: qui metto la media (solo per display), NON usata nei calcoli
         $ordRateAvg = $ordHours > 0 ? round($ordAmount / $ordHours, 2) : 0.0;
         $specRateAvg = $specHours > 0 ? round($specAmount / $specHours, 2) : 0.0;
 
@@ -216,7 +193,6 @@ class ReportCalculator
             'ordHours' => round($ordHours, 2),
             'specHours' => round($specHours, 2),
 
-            // Solo display (media effettiva)
             'ordRate' => $ordRateAvg,
             'specRate' => $specRateAvg,
 
@@ -226,10 +202,6 @@ class ReportCalculator
         ];
     }
 
-    /**
-     * TotaleCrono (per crono, per gara)
-     * Somma di "totalService" su tutti i giorni della gara.
-     */
     public function computeTotaleCrono(iterable $adminRowsForUser): float
     {
         $sum = 0.0;
@@ -242,13 +214,6 @@ class ReportCalculator
         return round($sum, 2);
     }
 
-    /**
-     * GrandTotal (per crono, per gara)
-     * = TotaleCrono (giornaliero sommato) + totale parte gara (km + spese + mancati + furgone)
-     *
-     * Contributo organizzativo + spese varie gara:
-     * sono UNA SOLA VOLTA per tutta la gara totale => NON li sommo sul singolo crono.
-     */
     public function computeGrandTotalForCrono(
         Race $race,
         ReportEntry $entry,
@@ -268,9 +233,6 @@ class ReportCalculator
         ];
     }
 
-    /**
-     * Giorni gara (inclusivo): date_end - date_of_race + 1
-     */
     public function computeRaceDaysCount(Race $race): int
     {
         $start = \Carbon\Carbon::parse($race->date_of_race)->startOfDay();

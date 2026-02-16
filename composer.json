@@ -10,7 +10,8 @@
         "getbrevo/brevo-php": "^2.0",
         "laravel/fortify": "^1.25",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/tinker": "^2.10.1",
+        "phpoffice/phpspreadsheet": "^5.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

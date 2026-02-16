@@ -294,7 +294,7 @@
                     {{-- DSC ORARI GIORNALIERI --}}
                     <div class="card tk-card mb-4">
                         <div class="card-header tk-card-header">
-                            <i class="fas fa-clock me-2"></i> Orari DSC (per giornata, validi per tutti)
+                            <i class="fas fa-clock me-2"></i> Orari DSC (per giornata) + Selezione cronometristi
                         </div>
 
                         <div class="card-body">
@@ -312,7 +312,9 @@
                             </form>
 
                             @php
-                                $lockedHours = $dscDayHours && ($dscDayHours->confirmed ?? false);
+                                // $dscDayHours può essere null se non ci sono righe per nessun crono in quel giorno
+                                // $selectedDayTimekeepers è un array di user_id selezionati per quel giorno
+                                $lockedHours = $lockedHours ?? false;
                             @endphp
 
                             <form method="POST" action="{{ route('records.dscDayHours.save', $race) }}">
@@ -320,6 +322,41 @@
                                 <input type="hidden" name="day" value="{{ $selectedDay }}">
 
                                 <div class="row g-3">
+
+                                    {{-- Selezione crono per la giornata --}}
+                                    <div class="col-12">
+                                        <label class="form-label">Cronometristi che lavorano in questa giornata</label>
+
+                                        <div class="row g-2">
+                                            @foreach ($timekeepers as $tk)
+                                                <div class="col-12 col-sm-6 col-lg-4">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            name="timekeepers[]" id="tk_{{ $tk->id }}"
+                                                            value="{{ $tk->id }}"
+                                                            {{ in_array($tk->id, old('timekeepers', $selectedDayTimekeepers ?? [])) ? 'checked' : '' }}
+                                                            {{ $lockedHours ? 'disabled' : '' }}>
+                                                        <label class="form-check-label" for="tk_{{ $tk->id }}">
+                                                            {{ $tk->surname }} {{ $tk->name }}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        @error('timekeepers')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                        @enderror
+                                        @error('timekeepers.*')
+                                            <div class="text-danger small mt-1">{{ $message }}</div>
+                                        @enderror
+
+                                        <div class="form-text">
+                                            Se non selezioni nessuno, nessun crono avrà ore per questa giornata (ore=0).
+                                        </div>
+                                    </div>
+
+                                    {{-- Orari giornata --}}
                                     <div class="col-6 col-md-3">
                                         <label class="form-label">Ora inizio mattina</label>
                                         <input type="time" name="morning_start" class="form-control"
@@ -352,13 +389,13 @@
                                 <div class="d-flex gap-2 mt-3">
                                     @if (!$lockedHours)
                                         <button type="submit" class="btn btn-warning">
-                                            <i class="fas fa-save me-1"></i> {{ $dscDayHours ? 'Modifica' : 'Salva' }}
-                                            Orari DSC (giornata)
+                                            <i class="fas fa-save me-1"></i>
+                                            Salva Orari + Assegnazioni (giornata)
                                         </button>
                                     @else
                                         <span class="badge bg-success align-self-center">
-                                            <i class="fas fa-check-circle me-1"></i> Orari DSC confermati per questa
-                                            giornata
+                                            <i class="fas fa-check-circle me-1"></i> Orari/assegnazioni confermati per
+                                            questa giornata
                                         </span>
                                     @endif
                                 </div>
@@ -370,14 +407,16 @@
                                     <input type="hidden" name="day" value="{{ $selectedDay }}">
 
                                     <button type="submit" class="btn btn-success"
-                                        onclick="return confirm('Confermare gli orari DSC per questa giornata? Dopo non potrai più modificarli.');"
-                                        {{ $dscDayHours && !$lockedHours ? '' : 'disabled' }}>
-                                        <i class="fas fa-check me-1"></i> Conferma Orari DSC (giornata)
+                                        onclick="return confirm('Confermare gli orari/assegnazioni DSC per questa giornata? Dopo non potrai più modificarli.');"
+                                        {{ ($hasAnyDayRows ?? false) && !$lockedHours ? '' : 'disabled' }}>
+                                        <i class="fas fa-check me-1"></i> Conferma Orari/Assegnazioni (giornata)
                                     </button>
                                 </form>
                             </div>
                         </div>
                     </div>
+
+
                 @endif
 
                 {{-- ============================================================
@@ -965,7 +1004,8 @@
                                                         <td class="g-ord num sep-right">
                                                             {{ number_format($ordAmount, 2) }}</td>
 
-                                                        <td class="g-spec num">{{ number_format($specHours, 2) }}</td>
+                                                        <td class="g-spec num">{{ number_format($specHours, 2) }}
+                                                        </td>
                                                         <td class="g-spec num">{{ number_format($specRate, 2) }}</td>
                                                         <td class="g-spec num sep-right">
                                                             {{ number_format($specAmount, 2) }}</td>

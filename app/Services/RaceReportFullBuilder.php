@@ -43,17 +43,27 @@ class RaceReportFullBuilder
         $dscRace = ReportRaceDsc::where('race_id', $race->id)->first();
         $settings = ReportAdminRaceSettings::where('race_id', $race->id)->first();
 
-        // 3) Orari DSC per giorno (work_date normalizzato)
-        $dscHoursByDay = ReportDayDsc::where('race_id', $race->id)
+        // 3) Orari DSC per giorno+crono (NUOVO)
+        //    chiave: "{$day}|{$userId}"
+        $dscRows = ReportDayDsc::where('race_id', $race->id)
             ->whereIn('work_date', $days)
-            ->get()
-            ->keyBy(function ($row) {
-                return $row->work_date instanceof \Carbon\Carbon
-                    ? $row->work_date->toDateString()
-                    : (string) $row->work_date;
-            });
+            ->get();
 
-        // 4) Ore segreteria per giorno+crono
+        $dscByDayByUser = [];
+        foreach ($dscRows as $row) {
+            $dayKey = $row->work_date instanceof \Carbon\Carbon
+                ? $row->work_date->toDateString()
+                : (string) $row->work_date;
+
+            // Se per qualche motivo in DB c'è una riga "globale" senza user_id, la ignoriamo
+            if (empty($row->user_id)) {
+                continue;
+            }
+
+            $dscByDayByUser[$dayKey][(int) $row->user_id] = $row;
+        }
+
+        // 4) Ore segreteria per giorno+crono (già corretto)
         $adminRows = ReportDayAdmin::where('race_id', $race->id)
             ->whereIn('work_date', $days)
             ->get();
@@ -64,11 +74,11 @@ class RaceReportFullBuilder
                 ? $row->work_date->toDateString()
                 : (string) $row->work_date;
 
-            $adminByDayByUser[$dayKey][$row->user_id] = $row;
+            $adminByDayByUser[$dayKey][(int) $row->user_id] = $row;
         }
 
         // 5) Righe “complete” per ogni crono
-        $rows = $timekeepers->map(function ($tk) use ($race, $entries, $dscRace, $settings, $days, $dscHoursByDay, $adminByDayByUser, $calc) {
+        $rows = $timekeepers->map(function ($tk) use ($race, $entries, $dscRace, $settings, $days, $dscByDayByUser, $adminByDayByUser, $calc) {
             $entry = $entries->get($tk->id);
 
             if (!$entry) {
@@ -93,10 +103,13 @@ class RaceReportFullBuilder
             $adminRowsForUser = [];
 
             foreach ($days as $day) {
-                $dscDay = $dscHoursByDay->get($day);
+                // ✅ NUOVO: orari DSC presi per (giorno + crono)
+                $dscDay = $dscByDayByUser[$day][(int) $tk->id] ?? null;
+
+                // ore lavorate: se dscDay null => 0 (già gestito dal calculator)
                 $workedHours = $calc->computeWorkedHoursForDay($dscDay);
 
-                $adminDayRow = $adminByDayByUser[$day][$tk->id] ?? null;
+                $adminDayRow = $adminByDayByUser[$day][(int) $tk->id] ?? null;
                 if ($adminDayRow) {
                     $adminRowsForUser[] = $adminDayRow;
                 }
@@ -139,7 +152,10 @@ class RaceReportFullBuilder
     public function buildForTimekeeper(Race $race, int $userId, ReportCalculator $calc): array
     {
         $data = $this->build($race, $calc);
-        $data['rows'] = collect($data['rows'])->filter(fn($r) => (int) $r['user']->id === (int) $userId)->values();
+        $data['rows'] = collect($data['rows'])
+            ->filter(fn($r) => (int) $r['user']->id === (int) $userId)
+            ->values();
+
         return $data;
     }
 }

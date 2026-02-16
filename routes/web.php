@@ -165,3 +165,8 @@ Route::middleware(['auth'])
     ->name('records.entry.delete');
 
 
+
+    Route::get('/secretariat/races/{race}/report-full/excel', [SecretariatController::class, 'exportReportFullExcel'])
+    ->name('secretariat.races.reportFullExcel');
+
+

@@ -359,10 +359,10 @@
                         <th class="z-3 sticky-col-2 w-col-dom sep-right">Domicilio</th>
 
                         <th class="z-0 g-orari nowrap">Giorno</th>
-                        <th class="z-0 g-orari nowrap">Inizio matt.</th>
+                        {{-- <th class="z-0 g-orari nowrap">Inizio matt.</th>
                         <th class="z-0 g-orari nowrap">Fine matt.</th>
                         <th class="z-0 g-orari nowrap">Inizio pom.</th>
-                        <th class="z-0 g-orari nowrap">Fine pom.</th>
+                        <th class="z-0 g-orari nowrap">Fine pom.</th> --}}
                         <th class="z-0 g-orari nowrap sep-right">Ore lav.</th>
 
                         <th class="z-0 g-ord nowrap">Ore ord.</th>
@@ -455,10 +455,10 @@
                                 @endif
 
                                 <td class="g-orari nowrap">{{ $dayLabel }}</td>
-                                <td class="g-orari nowrap">{{ $dscDay?->morning_start ?? '—' }}</td>
+                                {{-- <td class="g-orari nowrap">{{ $dscDay?->morning_start ?? '—' }}</td>
                                 <td class="g-orari nowrap">{{ $dscDay?->morning_end ?? '—' }}</td>
                                 <td class="g-orari nowrap">{{ $dscDay?->afternoon_start ?? '—' }}</td>
-                                <td class="g-orari nowrap">{{ $dscDay?->afternoon_end ?? '—' }}</td>
+                                <td class="g-orari nowrap">{{ $dscDay?->afternoon_end ?? '—' }}</td> --}}
                                 <td class="g-orari fw-semibold num sep-right">{{ number_format($workedHours, 2) }}
                                 </td>
 
