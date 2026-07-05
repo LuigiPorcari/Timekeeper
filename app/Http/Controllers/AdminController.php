@@ -81,6 +81,13 @@ class AdminController extends Controller
     {
         $raceDate = $race->date_of_race;
 
+        $raceStart = Carbon::parse($race->date_of_race)->toDateString();
+        $raceEnd = Carbon::parse($race->date_end ?? $race->date_of_race)->toDateString();
+
+        if ($raceEnd < $raceStart) {
+            [$raceStart, $raceEnd] = [$raceEnd, $raceStart];
+        }
+
         // 1) Recupero specializzazioni gara (array o stringa JSON) e le normalizzo
         $raceSpecs = $race->specialization_of_race ?? [];
 
@@ -102,14 +109,13 @@ class AdminController extends Controller
 
             if (str_contains($ns, '__')) {
                 [$type, $equip] = explode('__', $ns, 2);
-                return $equip; // uso solo la parte attrezzatura
+                return $equip;
             }
 
-            // fallback: se non è namespacizzato, lo porto a slug
             return Str::slug($ns, '_');
         }, $raceSpecs)));
 
-        // 2) Funzione di filtro cronometristi
+        // 2) Funzione di filtro cronometristi per specializzazione
         $filterFn = function ($user) use ($raceSpecBase) {
             $userSpecs = $user->specialization ?? [];
             $userSpecs = is_array($userSpecs) ? $userSpecs : [];
@@ -124,8 +130,6 @@ class AdminController extends Controller
                 return true;
             }
 
-            // Le specializzazioni del cronometrista sono salvate come "tipoSlug__equipSlug" (o "co").
-            // Anche qui estraggo SOLO la parte "equipSlug".
             $userSpecBase = array_values(array_filter(array_map(function ($ns) {
                 if (!is_string($ns) || $ns === '') {
                     return null;
@@ -136,17 +140,29 @@ class AdminController extends Controller
                     return $equip;
                 }
 
-                // fallback per vecchi valori non namespacizzati
                 return Str::slug($ns, '_');
             }, $userSpecs)));
 
-            // Match se c'è almeno una apparecchiatura in comune
             return count(array_intersect($userSpecBase, $raceSpecBase)) > 0;
         };
 
-        // 3) Logica disponibilità (come avevi già)
+        // 3) Query base: cronometristi NON già impegnati in altre gare nello stesso periodo
+        $baseQuery = User::where('is_timekeeper', 1)
+            ->whereDoesntHave('races', function ($query) use ($race, $raceStart, $raceEnd) {
+                $query->where('races.id', '!=', $race->id)
+                    ->whereDate('races.date_of_race', '<=', $raceEnd)
+                    ->where(function ($q) use ($raceStart) {
+                        $q->whereDate('races.date_end', '>=', $raceStart)
+                            ->orWhere(function ($q2) use ($raceStart) {
+                                $q2->whereNull('races.date_end')
+                                    ->whereDate('races.date_of_race', '>=', $raceStart);
+                            });
+                    });
+            });
+
+        // 4) Logica disponibilità
         if ($race->date_end == null) {
-            $timekeepers = User::where('is_timekeeper', 1)
+            $timekeepers = $baseQuery
                 ->whereHas('availabilities', function ($query) use ($raceDate) {
                     $query->where(
                         'date_of_availability',
@@ -154,23 +170,18 @@ class AdminController extends Controller
                     );
                 })
                 ->get()
-                ->filter($filterFn);
+                ->filter($filterFn)
+                ->values();
         } else {
-            $period = [
-                Carbon::parse($race->date_of_race)->toDateString(),
-                Carbon::parse($race->date_end)->toDateString(),
-            ];
+            $period = [$raceStart, $raceEnd];
 
-            if ($period[1] < $period[0]) {
-                $period = [$period[1], $period[0]];
-            }
-
-            $timekeepers = User::where('is_timekeeper', 1)
+            $timekeepers = $baseQuery
                 ->whereHas('availabilities', function ($query) use ($period) {
                     $query->whereBetween('date_of_availability', $period);
                 })
                 ->get()
-                ->filter($filterFn);
+                ->filter($filterFn)
+                ->values();
         }
 
         return view('admin.selectTimekeepers', compact('race', 'timekeepers'));
@@ -374,7 +385,7 @@ class AdminController extends Controller
 
         $leader = $race->users->firstWhere('pivot.is_leader', true);
 
-        
+
         $mailBaseData = [
             'raceName' => $race->name,
             'raceStart' => $race->date_of_race,
@@ -628,5 +639,81 @@ class AdminController extends Controller
         ]);
     }
 
+    // Aggiungi questo metodo dentro il controller admin.
+    public function racesCalendar(Request $request)
+    {
+        try {
+            $currentMonth = $request->filled('month')
+                ? Carbon::createFromFormat('Y-m', $request->query('month'))->startOfMonth()
+                : now()->startOfMonth();
+        } catch (\Throwable $e) {
+            $currentMonth = now()->startOfMonth();
+        }
 
+        $monthStart = $currentMonth->copy()->startOfMonth();
+        $monthEnd = $currentMonth->copy()->endOfMonth();
+
+        $calendarStart = $monthStart->copy()->startOfWeek(Carbon::MONDAY);
+        $calendarEnd = $monthEnd->copy()->endOfWeek(Carbon::SUNDAY);
+
+        $calendarDays = [];
+        for ($day = $calendarStart->copy(); $day->lte($calendarEnd); $day->addDay()) {
+            $calendarDays[] = $day->copy();
+        }
+
+        $races = Race::query()
+            ->whereDate('date_of_race', '<=', $calendarEnd->toDateString())
+            ->where(function ($query) use ($calendarStart) {
+                $query->where(function ($q) use ($calendarStart) {
+                    $q->whereNull('date_end')
+                        ->whereDate('date_of_race', '>=', $calendarStart->toDateString());
+                })->orWhere(function ($q) use ($calendarStart) {
+                    $q->whereNotNull('date_end')
+                        ->whereDate('date_end', '>=', $calendarStart->toDateString());
+                });
+            })
+            ->orderBy('date_of_race')
+            ->orderBy('name')
+            ->get();
+
+        $racesByDay = [];
+
+        foreach ($races as $race) {
+            $raceStart = Carbon::parse($race->date_of_race)->startOfDay();
+            $raceEnd = $race->date_end ? Carbon::parse($race->date_end)->startOfDay() : $raceStart->copy();
+
+            if ($raceEnd->lt($raceStart)) {
+                [$raceStart, $raceEnd] = [$raceEnd, $raceStart];
+            }
+
+            $visibleStart = $raceStart->greaterThan($calendarStart) ? $raceStart->copy() : $calendarStart->copy();
+            $visibleEnd = $raceEnd->lessThan($calendarEnd) ? $raceEnd->copy() : $calendarEnd->copy();
+
+            for ($day = $visibleStart->copy(); $day->lte($visibleEnd); $day->addDay()) {
+                $key = $day->toDateString();
+                $racesByDay[$key] ??= collect();
+                $racesByDay[$key]->push($race);
+            }
+        }
+
+        $monthRaces = $races->filter(function ($race) use ($monthStart, $monthEnd) {
+            $raceStart = Carbon::parse($race->date_of_race)->startOfDay();
+            $raceEnd = $race->date_end ? Carbon::parse($race->date_end)->startOfDay() : $raceStart->copy();
+
+            if ($raceEnd->lt($raceStart)) {
+                [$raceStart, $raceEnd] = [$raceEnd, $raceStart];
+            }
+
+            return $raceStart->lte($monthEnd) && $raceEnd->gte($monthStart);
+        })->values();
+
+        return view('admin.races.calendar', [
+            'currentMonth' => $currentMonth,
+            'previousMonth' => $currentMonth->copy()->subMonth()->format('Y-m'),
+            'nextMonth' => $currentMonth->copy()->addMonth()->format('Y-m'),
+            'calendarDays' => $calendarDays,
+            'racesByDay' => $racesByDay,
+            'monthRaces' => $monthRaces,
+        ]);
+    }
 }

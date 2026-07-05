@@ -242,8 +242,10 @@ class TimekeeperController extends Controller
                     'vitto' => null,
                     'alloggio' => null,
                     'spese_varie' => null,
+                    'spese_varie_note' => null,
                     'note' => null,
                     'confirmed' => false,
+                    'secretariat_confirmed' => false,
                 ]);
                 $entry->setRelation('user', $tk);
                 $entry->setRelation('attachments', collect());
@@ -424,31 +426,41 @@ class TimekeeperController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        if ($existing && $existing->confirmed) {
-            return back()->with('error', 'Il tuo report per questa gara è già confermato e non può essere modificato.');
+        if ($existing && ($existing->confirmed || $existing->secretariat_confirmed)) {
+            return back()->with('error', 'Il tuo report per questa gara è confermato e non può essere modificato.');
         }
 
         $validated = $request->validate([
             'km' => 'nullable|numeric|min:0',
             'pedaggi' => 'nullable|numeric|min:0',
-            'vitto' => 'nullable|numeric|min:0',
-            'alloggio' => 'nullable|numeric|min:0',
+            'vitto_tipo' => 'required|in:forfettario,offerto,documentato',
+            'vitto_documentato' => 'required_if:vitto_tipo,documentato|nullable|numeric|min:0',
             'spese_varie' => 'nullable|numeric|min:0',
+            'spese_varie_note' => 'nullable|string|max:1000',
             'note' => 'nullable|string',
             'attachments.*' => 'nullable|file|max:10240',
         ]);
+
+        $vitto = $this->resolveVittoAmount(
+            $validated['vitto_tipo'],
+            $validated['vitto_documentato'] ?? null
+        );
 
         $entry = ReportEntry::updateOrCreate(
             ['race_id' => $race->id, 'user_id' => $user->id],
             [
                 'km' => $validated['km'] ?? null,
                 'pedaggi' => $validated['pedaggi'] ?? null,
-                'vitto' => $validated['vitto'] ?? null,
-                'alloggio' => $validated['alloggio'] ?? null,
+                'vitto' => $vitto,
+                'alloggio' => null,
                 'spese_varie' => $validated['spese_varie'] ?? null,
                 'note' => $validated['note'] ?? null,
             ]
         );
+
+        $entry->forceFill([
+            'spese_varie_note' => $validated['spese_varie_note'] ?? null,
+        ])->save();
 
         // Allegati (link diretto a storage)
         if ($request->hasFile('attachments')) {
@@ -478,7 +490,7 @@ class TimekeeperController extends Controller
                 ->with('error', 'Non hai i permessi per modificare questo report.');
         }
 
-        if ($entry->confirmed) {
+        if ($entry->confirmed || $entry->secretariat_confirmed) {
             return redirect()
                 ->route('records.manage', ['race' => $entry->race_id, 'day' => request('day')])
                 ->with('error', 'Questo report è stato confermato e non può essere modificato.');
@@ -495,7 +507,7 @@ class TimekeeperController extends Controller
     {
         $user = auth()->user();
 
-        if ($entry->confirmed) {
+        if ($entry->confirmed || $entry->secretariat_confirmed) {
             return back()->with('error', 'Questo report è stato confermato e non può essere modificato.');
         }
 
@@ -506,21 +518,31 @@ class TimekeeperController extends Controller
         $validated = $request->validate([
             'km' => 'nullable|numeric|min:0',
             'pedaggi' => 'nullable|numeric|min:0',
-            'vitto' => 'nullable|numeric|min:0',
-            'alloggio' => 'nullable|numeric|min:0',
+            'vitto_tipo' => 'required|in:forfettario,offerto,documentato',
+            'vitto_documentato' => 'required_if:vitto_tipo,documentato|nullable|numeric|min:0',
             'spese_varie' => 'nullable|numeric|min:0',
+            'spese_varie_note' => 'nullable|string|max:1000',
             'note' => 'nullable|string',
             'attachments.*' => 'nullable|file|max:10240',
         ]);
 
+        $vitto = $this->resolveVittoAmount(
+            $validated['vitto_tipo'],
+            $validated['vitto_documentato'] ?? null
+        );
+
         $entry->update([
             'km' => $validated['km'] ?? null,
             'pedaggi' => $validated['pedaggi'] ?? null,
-            'vitto' => $validated['vitto'] ?? null,
-            'alloggio' => $validated['alloggio'] ?? null,
+            'vitto' => $vitto,
+            'alloggio' => null,
             'spese_varie' => $validated['spese_varie'] ?? null,
             'note' => $validated['note'] ?? null,
         ]);
+
+        $entry->forceFill([
+            'spese_varie_note' => $validated['spese_varie_note'] ?? null,
+        ])->save();
 
         // Allegati aggiuntivi
         if ($request->hasFile('attachments')) {
@@ -542,7 +564,7 @@ class TimekeeperController extends Controller
     {
         $user = auth()->user();
 
-        if ($entry->confirmed) {
+        if ($entry->confirmed || $entry->secretariat_confirmed) {
             return back()->with('error', 'Questo report è stato confermato e non può essere eliminato.');
         }
 
@@ -568,6 +590,11 @@ class TimekeeperController extends Controller
                 ->with('error', 'Non hai i permessi per confermare questo report.');
         }
 
+        if ($entry->secretariat_confirmed) {
+            return redirect()->route('records.manage', ['race' => $entry->race_id, 'day' => request('day')])
+                ->with('error', 'Questo report è stato confermato dalla segreteria e non può più essere modificato.');
+        }
+
         $entry->update(['confirmed' => true]);
 
         return redirect()->route('records.manage', [
@@ -586,9 +613,31 @@ class TimekeeperController extends Controller
             return back()->with('error', 'Non hai i permessi per confermare i report di questa gara.');
         }
 
-        ReportEntry::where('race_id', $race->id)
-            ->where('confirmed', false)
-            ->update(['confirmed' => true]);
+        $timekeepers = $race->users()
+            ->select('users.id')
+            ->get();
+
+        foreach ($timekeepers as $timekeeper) {
+            $entry = ReportEntry::firstOrNew([
+                'race_id' => $race->id,
+                'user_id' => $timekeeper->id,
+            ]);
+
+            if ($entry->secretariat_confirmed) {
+                continue;
+            }
+
+            $entry->forceFill([
+                'km' => $entry->km,
+                'pedaggi' => $entry->pedaggi,
+                'vitto' => $entry->vitto,
+                'alloggio' => null,
+                'spese_varie' => $entry->spese_varie,
+                'spese_varie_note' => $entry->spese_varie_note,
+                'note' => $entry->note,
+                'confirmed' => true,
+            ])->save();
+        }
 
         return redirect()->route('records.manage', [
             'race' => $race->id,
@@ -606,32 +655,42 @@ class TimekeeperController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        if ($entry && $entry->confirmed) {
+        if ($entry && ($entry->confirmed || $entry->secretariat_confirmed)) {
             return back()->with('error', 'Il tuo report per questa gara è confermato e non può essere modificato.');
         }
 
         $validated = $request->validate([
             'km' => 'nullable|numeric|min:0',
             'pedaggi' => 'nullable|numeric|min:0',
-            'vitto' => 'nullable|numeric|min:0',
-            'alloggio' => 'nullable|numeric|min:0',
+            'vitto_tipo' => 'required|in:forfettario,offerto,documentato',
+            'vitto_documentato' => 'required_if:vitto_tipo,documentato|nullable|numeric|min:0',
             'spese_varie' => 'nullable|numeric|min:0',
+            'spese_varie_note' => 'nullable|string|max:1000',
             'note' => 'nullable|string',
             'attachments.*' => 'nullable|file|max:10240',
             'day' => 'nullable|date',
         ]);
+
+        $vitto = $this->resolveVittoAmount(
+            $validated['vitto_tipo'],
+            $validated['vitto_documentato'] ?? null
+        );
 
         $entry = ReportEntry::updateOrCreate(
             ['race_id' => $race->id, 'user_id' => $user->id],
             [
                 'km' => $validated['km'] ?? null,
                 'pedaggi' => $validated['pedaggi'] ?? null,
-                'vitto' => $validated['vitto'] ?? null,
-                'alloggio' => $validated['alloggio'] ?? null,
+                'vitto' => $vitto,
+                'alloggio' => null,
                 'spese_varie' => $validated['spese_varie'] ?? null,
                 'note' => $validated['note'] ?? null,
             ]
         );
+
+        $entry->forceFill([
+            'spese_varie_note' => $validated['spese_varie_note'] ?? null,
+        ])->save();
 
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
@@ -693,7 +752,10 @@ class TimekeeperController extends Controller
 
         $validated = $request->validate([
             'van_needed' => 'nullable|boolean',
-            'missed_meals' => 'nullable|integer|min:0|max:200',
+            'missed_meals_detail' => 'nullable|array',
+            'missed_meals_detail.*' => 'nullable|array',
+            'missed_meals_detail.*.pranzo' => 'nullable|boolean',
+            'missed_meals_detail.*.cena' => 'nullable|boolean',
             'apparecchiature' => 'nullable|array',
             'apparecchiature.*' => 'string',
         ]);
@@ -704,15 +766,44 @@ class TimekeeperController extends Controller
             return back()->with('error', 'I dati DSC della gara sono confermati e non possono essere modificati.');
         }
 
-        ReportRaceDsc::updateOrCreate(
+        $assignedIds = $race->users()
+            ->pluck('users.id')
+            ->map(fn($id) => (int) $id)
+            ->all();
+
+        $mealInput = $validated['missed_meals_detail'] ?? [];
+        $mealDetail = [];
+        $missedMealsCount = 0;
+
+        foreach ($assignedIds as $assignedId) {
+            $selectedMeals = $mealInput[$assignedId] ?? $mealInput[(string) $assignedId] ?? [];
+
+            $pranzo = !empty($selectedMeals['pranzo']);
+            $cena = !empty($selectedMeals['cena']);
+
+            if ($pranzo || $cena) {
+                $mealDetail[$assignedId] = [
+                    'pranzo' => $pranzo,
+                    'cena' => $cena,
+                ];
+
+                $missedMealsCount += ($pranzo ? 1 : 0) + ($cena ? 1 : 0);
+            }
+        }
+
+        $dscRace = ReportRaceDsc::updateOrCreate(
             ['race_id' => $race->id],
             [
                 'user_id' => $user->id,
                 'van_needed' => (bool) ($validated['van_needed'] ?? false),
-                'missed_meals' => (int) ($validated['missed_meals'] ?? 0),
+                'missed_meals' => $missedMealsCount,
                 'apparecchiature' => $validated['apparecchiature'] ?? [],
             ]
         );
+
+        $dscRace->forceFill([
+            'missed_meals_detail' => !empty($mealDetail) ? json_encode($mealDetail) : null,
+        ])->save();
 
         return redirect()
             ->route('records.manage', ['race' => $race->id])
@@ -874,7 +965,7 @@ class TimekeeperController extends Controller
             return back()->with('error', 'Non hai ancora salvato il report crono da confermare.');
         }
 
-        if ($entry->confirmed) {
+        if ($entry->confirmed || $entry->secretariat_confirmed) {
             return back()->with('success', 'Il report crono è già confermato.');
         }
 
@@ -898,7 +989,7 @@ class TimekeeperController extends Controller
             return back()->with('error', 'Non c’è nessun report da eliminare.');
         }
 
-        if ($entry->confirmed) {
+        if ($entry->confirmed || $entry->secretariat_confirmed) {
             return back()->with('error', 'Questo report è confermato e non può essere eliminato.');
         }
 
@@ -912,6 +1003,23 @@ class TimekeeperController extends Controller
         return redirect()
             ->route('records.manage', ['race' => $race->id, 'day' => $day])
             ->with('success', 'Report eliminato con successo.');
+    }
+
+    private function resolveVittoAmount(string $vittoTipo, $vittoDocumentato = null)
+    {
+        if ($vittoTipo === 'forfettario') {
+            return 15;
+        }
+
+        if ($vittoTipo === 'offerto') {
+            return 0;
+        }
+
+        if ($vittoTipo === 'documentato') {
+            return $vittoDocumentato;
+        }
+
+        return null;
     }
 
 }

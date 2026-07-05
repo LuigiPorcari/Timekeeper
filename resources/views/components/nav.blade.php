@@ -1,9 +1,25 @@
+<style>
+    .navbar-logo {
+        display: block;
+        height: 38px;
+        width: auto;
+        max-width: 180px;
+        object-fit: contain;
+    }
+
+    @media (max-width: 575.98px) {
+        .navbar-logo {
+            height: 32px;
+            max-width: 150px;
+        }
+    }
+</style>
+
 <nav class="navbar navbar-expand-lg navbar-dark ficr-navbar fixed-top shadow-sm" role="navigation"
     aria-label="Menu principale">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center gap-2" href="{{ route('homepage') }}">
-            <i class="fa-solid fa-stopwatch"></i>
-            <span>TimeKeeper</span>
+        <a class="navbar-brand d-flex align-items-center" href="{{ route('homepage') }}" aria-label="Vai alla homepage">
+            <img src="{{ asset('images/logo.png') }}" alt="TimeKeeper" class="navbar-logo">
         </a>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"

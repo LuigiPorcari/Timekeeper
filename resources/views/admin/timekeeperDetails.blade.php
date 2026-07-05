@@ -57,59 +57,52 @@
 
                                 @php
                                     $current = $timekeeper->specialization ?? [];
-                                    $typesMap = $typesMap ?? []; // passato dal controller
+                                    $typesMap = $typesMap ?? [];
                                     $slug = fn(string $t) => \Illuminate\Support\Str::slug($t, '_');
 
-                                    // mappa: slugTipo => labelTipo
                                     $typeSlugToLabel = [];
                                     foreach ($typesMap as $typeLabel => $equipList) {
                                         $typeSlugToLabel[$slug($typeLabel)] = $typeLabel;
                                     }
 
-                                    // helper per trovare il label umano dell'attrezzatura partendo dallo slug
-$equipHuman = function (string $typeLabel, string $equipSlug) use (
-    $typesMap,
-    $slug,
-) {
-    $list = $typesMap[$typeLabel] ?? [];
-    foreach ($list as $human) {
-        if ($slug($human) === $equipSlug) {
-            return $human; // esattamente quello del config
-        }
-    }
-    // fallback decoroso
-    return ucwords(str_replace(['_', '-'], ' ', $equipSlug));
-};
+                                    $equipHuman = function (string $typeLabel, string $equipSlug) use ($typesMap, $slug) {
+                                        $list = $typesMap[$typeLabel] ?? [];
 
-// Raggruppo:
-// - Generali: contiene solo 'co'
-// - Per tipo: ogni chiave è "labelTipo", valori = array di label attrezzature
-$groups = [];
-$generali = [];
+                                        foreach ($list as $human) {
+                                            if ($slug($human) === $equipSlug) {
+                                                return $human;
+                                            }
+                                        }
 
-foreach ($current as $val) {
-    if ($val === 'co') {
-        $generali[] = 'Co';
-        continue;
-    }
+                                        return ucwords(str_replace(['_', '-'], ' ', $equipSlug));
+                                    };
 
-    if (is_string($val) && str_contains($val, '__')) {
-        [$typeSlug, $equipSlug] = explode('__', $val, 2);
-        $typeLabel =
-            $typeSlugToLabel[$typeSlug] ??
-            ucwords(str_replace('_', ' ', $typeSlug));
-        $equipLabel = $equipHuman($typeLabel, $equipSlug);
+                                    $groups = [];
+                                    $generali = [];
 
-        if (!isset($groups[$typeLabel])) {
-            $groups[$typeLabel] = [];
-        }
-        $groups[$typeLabel][] = $equipLabel;
-    } else {
-        // Valore non namespacizzato: lo metto in "Altre"
-        if (!isset($groups['Altre'])) {
-            $groups['Altre'] = [];
-        }
-        $groups['Altre'][] = ucwords(str_replace(['_', '-'], ' ', (string) $val));
+                                    foreach ($current as $val) {
+                                        if ($val === 'co') {
+                                            $generali[] = 'Co';
+                                            continue;
+                                        }
+
+                                        if (is_string($val) && str_contains($val, '__')) {
+                                            [$typeSlug, $equipSlug] = explode('__', $val, 2);
+
+                                            $typeLabel = $typeSlugToLabel[$typeSlug] ?? ucwords(str_replace('_', ' ', $typeSlug));
+                                            $equipLabel = $equipHuman($typeLabel, $equipSlug);
+
+                                            if (!isset($groups[$typeLabel])) {
+                                                $groups[$typeLabel] = [];
+                                            }
+
+                                            $groups[$typeLabel][] = $equipLabel;
+                                        } else {
+                                            if (!isset($groups['Altre'])) {
+                                                $groups['Altre'] = [];
+                                            }
+
+                                            $groups['Altre'][] = ucwords(str_replace(['_', '-'], ' ', (string) $val));
                                         }
                                     }
                                 @endphp
@@ -124,21 +117,19 @@ foreach ($current as $val) {
                                                 <div class="small text-muted mb-1">Generali</div>
                                                 <div class="d-flex flex-wrap gap-2">
                                                     @foreach ($generali as $g)
-                                                        <span
-                                                            class="badge badge-soft border">{{ $g }}</span>
+                                                        <span class="badge badge-soft border">{{ $g }}</span>
                                                     @endforeach
                                                 </div>
                                             </div>
                                         @endif
 
-                                        {{-- Per tipo di gara (ordinate per nome tipo) --}}
+                                        {{-- Per tipo di gara --}}
                                         @foreach (collect($groups)->sortKeys() as $typeLabel => $equipList)
                                             <div>
                                                 <div class="small text-muted mb-1">{{ $typeLabel }}</div>
                                                 <div class="d-flex flex-wrap gap-2">
                                                     @foreach (array_unique($equipList) as $equipLabel)
-                                                        <span
-                                                            class="badge badge-soft border">{{ $equipLabel }}</span>
+                                                        <span class="badge badge-soft border">{{ $equipLabel }}</span>
                                                     @endforeach
                                                 </div>
                                             </div>
@@ -195,22 +186,24 @@ foreach ($current as $val) {
                                     $slug = fn(string $text) => \Illuminate\Support\Str::slug($text, '_');
                                     $selected = $timekeeper->specialization ?? [];
 
-                                    // Costruisco le sezioni: "Generali" (co) + tutti i tipi (namespaced)
                                     $sections = [];
                                     $sections['Generali'] = ['co'];
 
                                     foreach ($typesMap as $typeLabel => $equipList) {
                                         $typeSlug = $slug($typeLabel);
                                         $rows = [];
+
                                         foreach ($equipList as $lab) {
                                             if (!filled($lab)) {
                                                 continue;
                                             }
+
                                             $rows[] = [
                                                 'id' => $typeSlug . '__' . $slug($lab),
                                                 'label' => $lab,
                                             ];
                                         }
+
                                         if (!empty($rows)) {
                                             $sections[$typeLabel] = $rows;
                                         }
@@ -234,12 +227,30 @@ foreach ($current as $val) {
                                         @if ($title === 'Generali')
                                             @continue
                                         @endif
+
+                                        @php
+                                            $sectionId = $slug($title);
+                                        @endphp
+
                                         <div class="col-md-6 col-lg-4">
                                             <h3 class="h6 mb-2 border-bottom pb-1">{{ $title }}</h3>
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input js-select-all-specializations"
+                                                    type="checkbox"
+                                                    id="select_all_{{ $sectionId }}"
+                                                    data-target-group="group_{{ $sectionId }}">
+                                                <label class="form-check-label fw-semibold" for="select_all_{{ $sectionId }}">
+                                                    Seleziona tutto
+                                                </label>
+                                            </div>
+
                                             @foreach ($rows as $row)
                                                 <div class="form-check mb-1">
-                                                    <input class="form-check-input" type="checkbox"
-                                                        name="specialization[]" id="spec_{{ $row['id'] }}"
+                                                    <input class="form-check-input js-specialization-checkbox group_{{ $sectionId }}"
+                                                        type="checkbox"
+                                                        name="specialization[]"
+                                                        id="spec_{{ $row['id'] }}"
                                                         value="{{ $row['id'] }}"
                                                         {{ in_array($row['id'], $selected, true) ? 'checked' : '' }}>
                                                     <label class="form-check-label" for="spec_{{ $row['id'] }}">
@@ -264,4 +275,51 @@ foreach ($current as $val) {
             </div>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const selectAllCheckboxes = document.querySelectorAll('.js-select-all-specializations');
+
+            function updateSelectAllState(selectAllCheckbox) {
+                const groupClass = selectAllCheckbox.dataset.targetGroup;
+                const groupCheckboxes = document.querySelectorAll('.' + groupClass);
+
+                if (groupCheckboxes.length === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                    return;
+                }
+
+                const checkedCount = Array.from(groupCheckboxes).filter(function (checkbox) {
+                    return checkbox.checked;
+                }).length;
+
+                selectAllCheckbox.checked = checkedCount === groupCheckboxes.length;
+                selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < groupCheckboxes.length;
+            }
+
+            selectAllCheckboxes.forEach(function (selectAllCheckbox) {
+                updateSelectAllState(selectAllCheckbox);
+
+                selectAllCheckbox.addEventListener('change', function () {
+                    const groupClass = selectAllCheckbox.dataset.targetGroup;
+                    const groupCheckboxes = document.querySelectorAll('.' + groupClass);
+
+                    groupCheckboxes.forEach(function (checkbox) {
+                        checkbox.checked = selectAllCheckbox.checked;
+                    });
+
+                    selectAllCheckbox.indeterminate = false;
+                });
+            });
+
+            document.querySelectorAll('.js-specialization-checkbox').forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () {
+                    selectAllCheckboxes.forEach(function (selectAllCheckbox) {
+                        updateSelectAllState(selectAllCheckbox);
+                    });
+                });
+            });
+        });
+    </script>
 </x-layout>

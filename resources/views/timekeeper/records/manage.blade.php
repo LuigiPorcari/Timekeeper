@@ -60,7 +60,8 @@
                 ============================================================ --}}
                 <div class="card tk-card mb-4">
                     @php
-                        $lockedEntry = $myEntry && ($myEntry->confirmed ?? false);
+                        $lockedEntry =
+                            $myEntry && (($myEntry->confirmed ?? false) || ($myEntry->secretariat_confirmed ?? false));
                     @endphp
 
                     <div class="card-header tk-card-header d-flex justify-content-between align-items-center">
@@ -103,24 +104,57 @@
                                         @enderror
                                     </div>
 
+                                    @php
+                                        $vittoTipo = old('vitto_tipo');
+
+                                        if ($vittoTipo === null) {
+                                            if (!$myEntry || $myEntry->vitto === null) {
+                                                $vittoTipo = '';
+                                            } elseif ((float) $myEntry->vitto === 15.0) {
+                                                $vittoTipo = 'forfettario';
+                                            } elseif ((float) $myEntry->vitto === 0.0) {
+                                                $vittoTipo = 'offerto';
+                                            } else {
+                                                $vittoTipo = 'documentato';
+                                            }
+                                        }
+
+                                        $vittoDocumentato = old('vitto_documentato');
+
+                                        if ($vittoDocumentato === null && $vittoTipo === 'documentato') {
+                                            $vittoDocumentato = $myEntry->vitto ?? null;
+                                        }
+                                    @endphp
+
                                     <div class="col-12 col-md-2">
                                         <label class="form-label">Vitto</label>
-                                        <input type="number" step="0.01" name="vitto"
-                                            class="form-control @error('vitto') is-invalid @enderror"
-                                            value="{{ old('vitto', $myEntry->vitto ?? null) }}"
+                                        <select name="vitto_tipo"
+                                            class="form-select js-vitto-tipo @error('vitto_tipo') is-invalid @enderror"
                                             {{ $lockedEntry ? 'disabled' : '' }}>
-                                        @error('vitto')
-                                            <div class="invalid-feedback">{{ $message }}</div>
+                                            <option value="">-- Seleziona --</option>
+                                            <option value="forfettario"
+                                                {{ $vittoTipo === 'forfettario' ? 'selected' : '' }}>
+                                                Forfettario - 15€
+                                            </option>
+                                            <option value="offerto" {{ $vittoTipo === 'offerto' ? 'selected' : '' }}>
+                                                Offerto - 0€
+                                            </option>
+                                            <option value="documentato"
+                                                {{ $vittoTipo === 'documentato' ? 'selected' : '' }}>
+                                                Documentato
+                                            </option>
+                                        </select>
+                                        @error('vitto_tipo')
+                                            <div class="invalid-feedback d-block">{{ $message }}</div>
                                         @enderror
                                     </div>
 
-                                    <div class="col-12 col-md-2">
-                                        <label class="form-label">Alloggio</label>
-                                        <input type="number" step="0.01" name="alloggio"
-                                            class="form-control @error('alloggio') is-invalid @enderror"
-                                            value="{{ old('alloggio', $myEntry->alloggio ?? null) }}"
-                                            {{ $lockedEntry ? 'disabled' : '' }}>
-                                        @error('alloggio')
+                                    <div class="col-12 col-md-2 js-vitto-documentato-wrap" style="display: none;">
+                                        <label class="form-label">Importo vitto</label>
+                                        <input type="number" step="0.01" min="0" name="vitto_documentato"
+                                            class="form-control js-vitto-documentato @error('vitto_documentato') is-invalid @enderror"
+                                            value="{{ $vittoDocumentato }}" {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('vitto_documentato')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
@@ -132,6 +166,18 @@
                                             value="{{ old('spese_varie', $myEntry->spese_varie ?? null) }}"
                                             {{ $lockedEntry ? 'disabled' : '' }}>
                                         @error('spese_varie')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label">Note spese varie</label>
+                                        <input type="text" name="spese_varie_note"
+                                            class="form-control @error('spese_varie_note') is-invalid @enderror"
+                                            value="{{ old('spese_varie_note', $myEntry->spese_varie_note ?? null) }}"
+                                            placeholder="Es. parcheggio, taxi, materiale..."
+                                            {{ $lockedEntry ? 'disabled' : '' }}>
+                                        @error('spese_varie_note')
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                     </div>
@@ -155,9 +201,15 @@
                                             Report Crono
                                         </button>
                                     @else
-                                        <span class="badge bg-success align-self-center">
-                                            <i class="fas fa-check-circle me-1"></i> Report Crono confermato
-                                        </span>
+                                        @if ($myEntry && ($myEntry->secretariat_confirmed ?? false))
+                                            <span class="badge bg-success align-self-center">
+                                                <i class="fas fa-lock me-1"></i> Report chiuso dalla segreteria
+                                            </span>
+                                        @else
+                                            <span class="badge bg-success align-self-center">
+                                                <i class="fas fa-check-circle me-1"></i> Report Crono confermato
+                                            </span>
+                                        @endif
                                     @endif
                                     {{-- @if (!$isLeader && $myEntry && ($myEntry->exists ?? false) && !($myEntry->confirmed ?? false))
                                         <form method="POST" action="{{ route('records.entry.delete', $race) }}"
@@ -209,7 +261,26 @@
                     DSC (solo leader): una volta per gara + orari giornalieri
                 ============================================================ --}}
                 @if ($isLeader)
-                    @php $lockedDsc = $dsc && ($dsc->confirmed ?? false); @endphp
+                    @php
+                        $lockedDsc = $dsc && ($dsc->confirmed ?? false);
+
+                        $missedMealsDetail = old('missed_meals_detail');
+
+                        if ($missedMealsDetail === null) {
+                            $missedMealsDetail = $dsc->missed_meals_detail ?? [];
+                        }
+
+                        if (is_string($missedMealsDetail)) {
+                            $decodedMeals = json_decode($missedMealsDetail, true);
+                            $missedMealsDetail =
+                                json_last_error() === JSON_ERROR_NONE && is_array($decodedMeals) ? $decodedMeals : [];
+                        }
+
+                        $mealIsChecked = function ($userId, string $meal) use ($missedMealsDetail) {
+                            return !empty($missedMealsDetail[$userId][$meal]) ||
+                                !empty($missedMealsDetail[(string) $userId][$meal]);
+                        };
+                    @endphp
 
                     {{-- DSC GARA --}}
                     <div class="card tk-card mb-4">
@@ -232,12 +303,66 @@
                                         </div>
                                     </div>
 
-                                    <div class="col-12 col-md-3">
-                                        <label class="form-label">Numero mancati pasti</label>
-                                        <input type="number" min="0" step="1" name="missed_meals"
-                                            class="form-control"
-                                            value="{{ old('missed_meals', $dsc->missed_meals ?? 0) }}"
-                                            {{ $lockedDsc ? 'disabled' : '' }}>
+                                    <div class="col-12">
+                                        <label class="form-label">Mancati pasti</label>
+
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Cronometrista</th>
+                                                        <th class="text-center">Pranzo</th>
+                                                        <th class="text-center">Cena</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @forelse ($timekeepers as $timekeeper)
+                                                        <tr>
+                                                            <td>
+                                                                {{ $timekeeper->name }} {{ $timekeeper->surname }}
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <input class="form-check-input" type="checkbox"
+                                                                    name="missed_meals_detail[{{ $timekeeper->id }}][pranzo]"
+                                                                    id="missed_meal_{{ $timekeeper->id }}_pranzo"
+                                                                    value="1"
+                                                                    {{ $mealIsChecked($timekeeper->id, 'pranzo') ? 'checked' : '' }}
+                                                                    {{ $lockedDsc ? 'disabled' : '' }}>
+                                                                <label class="visually-hidden"
+                                                                    for="missed_meal_{{ $timekeeper->id }}_pranzo">
+                                                                    Pranzo mancato per {{ $timekeeper->name }}
+                                                                    {{ $timekeeper->surname }}
+                                                                </label>
+                                                            </td>
+                                                            <td class="text-center">
+                                                                <input class="form-check-input" type="checkbox"
+                                                                    name="missed_meals_detail[{{ $timekeeper->id }}][cena]"
+                                                                    id="missed_meal_{{ $timekeeper->id }}_cena"
+                                                                    value="1"
+                                                                    {{ $mealIsChecked($timekeeper->id, 'cena') ? 'checked' : '' }}
+                                                                    {{ $lockedDsc ? 'disabled' : '' }}>
+                                                                <label class="visually-hidden"
+                                                                    for="missed_meal_{{ $timekeeper->id }}_cena">
+                                                                    Cena mancata per {{ $timekeeper->name }}
+                                                                    {{ $timekeeper->surname }}
+                                                                </label>
+                                                            </td>
+                                                        </tr>
+                                                    @empty
+                                                        <tr>
+                                                            <td colspan="3" class="text-muted">
+                                                                Nessun cronometrista assegnato alla gara.
+                                                            </td>
+                                                        </tr>
+                                                    @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div class="form-text">
+                                            Ogni spunta vale un pasto mancato. Puoi selezionare sia pranzo che cena per
+                                            lo stesso cronometrista.
+                                        </div>
                                     </div>
 
                                     @if (!empty($specs))
@@ -441,8 +566,8 @@
                                             <th>Km</th>
                                             <th>Pedaggi</th>
                                             <th>Vitto</th>
-                                            <th>Alloggio</th>
                                             <th>Spese varie</th>
+                                            <th>Note spese</th>
                                             <th>Azioni</th>
                                         </tr>
                                     </thead>
@@ -459,12 +584,15 @@
                                                 <td>{{ number_format((float) ($entry->km ?? 0), 2) }}</td>
                                                 <td>{{ number_format((float) ($entry->pedaggi ?? 0), 2) }}</td>
                                                 <td>{{ number_format((float) ($entry->vitto ?? 0), 2) }}</td>
-                                                <td>{{ number_format((float) ($entry->alloggio ?? 0), 2) }}</td>
                                                 <td>{{ number_format((float) ($entry->spese_varie ?? 0), 2) }}</td>
+                                                <td>{{ $entry->spese_varie_note ?? '—' }}</td>
 
                                                 <td class="text-nowrap">
                                                     @php
-                                                        $canConfirm = $isLeader && !$entry->confirmed;
+                                                        $canConfirm =
+                                                            $isLeader &&
+                                                            !$entry->confirmed &&
+                                                            !($entry->secretariat_confirmed ?? false);
                                                     @endphp
 
                                                     <div class="d-flex flex-wrap gap-2 justify-content-start">
@@ -479,7 +607,11 @@
                                                             </form>
                                                         @endif
 
-                                                        @if ($entry->confirmed)
+                                                        @if ($entry->secretariat_confirmed ?? false)
+                                                            <span class="badge bg-success align-self-center">
+                                                                <i class="fas fa-lock me-1"></i> Chiuso segreteria
+                                                            </span>
+                                                        @elseif ($entry->confirmed)
                                                             <span class="badge bg-success align-self-center">
                                                                 <i class="fas fa-check-circle me-1"></i> Confermato
                                                             </span>
@@ -548,8 +680,6 @@
                                 $settings && $settings->spese_varie_gara !== null
                                     ? (float) $settings->spese_varie_gara
                                     : 0.0;
-
-                            $noteAppGara = $settings->apparecchiature_note ?? '';
 
                             $daysCount = is_array($fullDays) ? count($fullDays) : 0;
                         @endphp
@@ -872,7 +1002,7 @@
                                                     servizio</th>
 
                                                 <th colspan="4" class="z-0 g-dsc sep-right text-center">DSC</th>
-                                                <th colspan="5" class="z-0 g-segr sep-right text-center">Segreteria
+                                                <th colspan="4" class="z-0 g-segr sep-right text-center">Segreteria
                                                     (gara)</th>
                                                 <th colspan="6" class="z-0 g-spese sep-right text-center">Spese
                                                     (crono)</th>
@@ -892,7 +1022,7 @@
                                                 <th class="z-0 g-orari nowrap">Fine matt.</th>
                                                 <th class="z-0 g-orari nowrap">Inizio pom.</th>
                                                 <th class="z-0 g-orari nowrap">Fine pom.</th>
-                                                <th class="z-0 g-orari nowrap sep-right">Ore lav.</th>
+                                                <th class="z-0 g-orari nowrap sep-right">Ore da orari</th>
 
                                                 <th class="z-0 g-ord nowrap">Ore ord.</th>
                                                 <th class="z-0 g-ord nowrap">Tar. ord.</th>
@@ -912,15 +1042,14 @@
                                                 <th class="z-0 g-segr nowrap">Coeff Km</th>
                                                 <th class="z-0 g-segr nowrap">Van cost</th>
                                                 <th class="z-0 g-segr nowrap">Contributo org.</th>
-                                                <th class="z-0 g-segr nowrap">Spese varie</th>
-                                                <th class="z-0 g-segr nowrap sep-right">Note app.</th>
+                                                <th class="z-0 g-segr nowrap sep-right">Spese varie</th>
 
                                                 <th class="z-0 g-spese nowrap">Km</th>
                                                 <th class="z-0 g-spese nowrap">Imp. Km</th>
                                                 <th class="z-0 g-spese nowrap">Pedaggi</th>
                                                 <th class="z-0 g-spese nowrap">Vitto</th>
-                                                <th class="z-0 g-spese nowrap">Alloggio</th>
-                                                <th class="z-0 g-spese nowrap sep-right">Spese varie</th>
+                                                <th class="z-0 g-spese nowrap">Spese varie</th>
+                                                <th class="z-0 g-spese nowrap sep-right">Note spese</th>
 
                                                 <th class="z-0 g-totali nowrap">Tot. parte gara</th>
                                                 <th class="z-0 g-totali nowrap">TotaleCrono</th>
@@ -1035,12 +1164,9 @@
                                                                 {{ number_format($vanCostRace, 2) }}</td>
                                                             <td rowspan="{{ $rowspan }}" class="g-segr num">
                                                                 {{ number_format($contributoOrganizzativo, 2) }}</td>
-                                                            <td rowspan="{{ $rowspan }}" class="g-segr num">
-                                                                {{ number_format($speseVarieGara, 2) }}</td>
                                                             <td rowspan="{{ $rowspan }}"
-                                                                class="g-segr sep-right">
-                                                                {{ $noteAppGara !== '' ? $noteAppGara : '—' }}
-                                                            </td>
+                                                                class="g-segr num sep-right">
+                                                                {{ number_format($speseVarieGara, 2) }}</td>
 
                                                             <td rowspan="{{ $rowspan }}" class="g-spese num">
                                                                 {{ number_format((float) ($entry->km ?? 0), 2) }}</td>
@@ -1053,11 +1179,11 @@
                                                                 {{ number_format((float) ($entry->vitto ?? 0), 2) }}
                                                             </td>
                                                             <td rowspan="{{ $rowspan }}" class="g-spese num">
-                                                                {{ number_format((float) ($entry->alloggio ?? 0), 2) }}
+                                                                {{ number_format((float) ($entry->spese_varie ?? 0), 2) }}
                                                             </td>
                                                             <td rowspan="{{ $rowspan }}"
-                                                                class="g-spese num sep-right">
-                                                                {{ number_format((float) ($entry->spese_varie ?? 0), 2) }}
+                                                                class="g-spese sep-right">
+                                                                {{ $entry->spese_varie_note ?? '—' }}
                                                             </td>
 
                                                             <td rowspan="{{ $rowspan }}"
@@ -1091,7 +1217,12 @@
                                                             </td>
 
                                                             <td rowspan="{{ $rowspan }}" class="g-note nowrap">
-                                                                @if ($entry->confirmed)
+                                                                @if ($entry->secretariat_confirmed ?? false)
+                                                                    <span class="badge bg-success">
+                                                                        <i class="fas fa-lock me-1"></i>
+                                                                        Chiuso segreteria
+                                                                    </span>
+                                                                @elseif ($entry->confirmed)
                                                                     <span class="badge bg-success">
                                                                         <i class="fas fa-check-circle me-1"></i>
                                                                         Confermato
@@ -1106,7 +1237,7 @@
                                                 @endforeach
                                             @empty
                                                 <tr>
-                                                    <td colspan="36" class="text-center text-muted p-4">
+                                                    <td colspan="35" class="text-center text-muted p-4">
                                                         Nessun dato disponibile.
                                                     </td>
                                                 </tr>
@@ -1194,4 +1325,34 @@
             </div>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selects = document.querySelectorAll('.js-vitto-tipo');
+
+            selects.forEach(function(select) {
+                const form = select.closest('form');
+                const wrapper = form ? form.querySelector('.js-vitto-documentato-wrap') : null;
+                const input = form ? form.querySelector('.js-vitto-documentato') : null;
+
+                function toggleVittoDocumentato() {
+                    if (!wrapper || !input) {
+                        return;
+                    }
+
+                    const isDocumentato = select.value === 'documentato';
+
+                    wrapper.style.display = isDocumentato ? 'block' : 'none';
+                    input.required = isDocumentato;
+
+                    if (!isDocumentato) {
+                        input.value = '';
+                    }
+                }
+
+                select.addEventListener('change', toggleVittoDocumentato);
+                toggleVittoDocumentato();
+            });
+        });
+    </script>
 </x-layout>

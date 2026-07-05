@@ -12,6 +12,30 @@
                     </div>
                 @endif
 
+                @php
+                    $currentVitto = old('vitto_documentato', $entry->vitto);
+
+                    $vittoTipo = old('vitto_tipo');
+
+                    if ($vittoTipo === null) {
+                        if ($entry->vitto === null) {
+                            $vittoTipo = '';
+                        } elseif ((float) $entry->vitto === 15.0) {
+                            $vittoTipo = 'forfettario';
+                        } elseif ((float) $entry->vitto === 0.0) {
+                            $vittoTipo = 'offerto';
+                        } else {
+                            $vittoTipo = 'documentato';
+                        }
+                    }
+
+                    $vittoDocumentato = old('vitto_documentato');
+
+                    if ($vittoDocumentato === null && $vittoTipo === 'documentato') {
+                        $vittoDocumentato = $entry->vitto;
+                    }
+                @endphp
+
                 <div class="card tk-card">
                     <div class="card-header tk-card-header">
                         <i class="fas fa-pen me-2"></i> Dati Crono (una volta per gara)
@@ -23,7 +47,6 @@
                             @csrf
                             @method('PUT')
 
-                            {{-- per tornare al giorno selezionato --}}
                             <input type="hidden" name="day" value="{{ $day }}">
 
                             <div class="row g-3">
@@ -49,10 +72,32 @@
 
                                 <div class="col-12 col-md-4">
                                     <label class="form-label">Vitto</label>
-                                    <input type="number" step="0.01" name="vitto"
-                                        class="form-control @error('vitto') is-invalid @enderror"
-                                        value="{{ old('vitto', $entry->vitto) }}">
-                                    @error('vitto')
+                                    <select name="vitto_tipo"
+                                        class="form-select js-vitto-tipo @error('vitto_tipo') is-invalid @enderror">
+                                        <option value="">-- Seleziona --</option>
+                                        <option value="forfettario"
+                                            {{ $vittoTipo === 'forfettario' ? 'selected' : '' }}>
+                                            Forfettario - 15€
+                                        </option>
+                                        <option value="offerto" {{ $vittoTipo === 'offerto' ? 'selected' : '' }}>
+                                            Offerto - 0€
+                                        </option>
+                                        <option value="documentato"
+                                            {{ $vittoTipo === 'documentato' ? 'selected' : '' }}>
+                                            Documentato
+                                        </option>
+                                    </select>
+                                    @error('vitto_tipo')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="col-12 col-md-4 js-vitto-documentato-wrap" style="display: none;">
+                                    <label class="form-label">Importo vitto documentato</label>
+                                    <input type="number" step="0.01" min="0" name="vitto_documentato"
+                                        class="form-control js-vitto-documentato @error('vitto_documentato') is-invalid @enderror"
+                                        value="{{ $vittoDocumentato }}">
+                                    @error('vitto_documentato')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -120,4 +165,32 @@
             </div>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const select = document.querySelector('.js-vitto-tipo');
+            const wrapper = document.querySelector('.js-vitto-documentato-wrap');
+            const input = document.querySelector('.js-vitto-documentato');
+
+            function toggleVittoDocumentato() {
+                if (!select || !wrapper || !input) {
+                    return;
+                }
+
+                const isDocumentato = select.value === 'documentato';
+
+                wrapper.style.display = isDocumentato ? 'block' : 'none';
+                input.required = isDocumentato;
+
+                if (!isDocumentato) {
+                    input.value = '';
+                }
+            }
+
+            if (select) {
+                select.addEventListener('change', toggleVittoDocumentato);
+                toggleVittoDocumentato();
+            }
+        });
+    </script>
 </x-layout>

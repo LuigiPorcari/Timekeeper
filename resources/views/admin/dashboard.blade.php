@@ -54,6 +54,29 @@
                 </div>
             </div>
 
+            {{-- Calendario gare --}}
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="card ficr-card h-100 border-0 shadow-sm rounded-4">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="ficr-badge-icon me-2">
+                                <i class="fa-solid fa-calendar-days"></i>
+                            </span>
+                            <h2 class="h6 mb-0">Calendario gare</h2>
+                        </div>
+                        <p class="text-muted small flex-grow-1 mb-3">
+                            Visualizza le gare su calendario mensile e naviga tra i mesi.
+                        </p>
+                        <div class="d-grid">
+                            <a class="btn btn-ficr" href="{{ route('admin.racesCalendar') }}" role="button"
+                                aria-label="Apri calendario gare">
+                                Apri
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {{-- Disponibilità --}}
             <div class="col-12 col-md-6 col-lg-3">
                 <div class="card ficr-card h-100 border-0 shadow-sm rounded-4">

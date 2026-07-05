@@ -12,7 +12,7 @@ use App\Models\ReportAdminRaceSettings;
 class ReportCalculator
 {
     /**
-     * Alias "compatibilità".
+     * Alias di compatibilità.
      */
     public function computeRow(
         Race $race,
@@ -24,9 +24,8 @@ class ReportCalculator
     }
 
     /**
-     * ✅ Alias per compatibilità con controller/view che chiamano ancora computeRowForDay().
-     * In questo progetto "ForDay" qui è usato come "calcoli parte gara (non giornalieri)".
-     * $adminAny non serve: lo ignoro.
+     * Alias per compatibilità con controller/view che chiamano ancora computeRowForDay().
+     * In questo progetto "ForDay" qui è usato come "calcoli parte gara", non come calcolo giornaliero.
      */
     public function computeRowForDay(
         Race $race,
@@ -39,7 +38,7 @@ class ReportCalculator
     }
 
     /**
-     * Totali "per gara" (una riga per crono).
+     * Totali per gara, una riga per crono.
      */
     public function computeRowForRace(
         Race $race,
@@ -112,9 +111,8 @@ class ReportCalculator
     }
 
     /**
-     * Ore lavorate (per giornata) da orari DSC.
-     * ✅ Con la nuova logica, $dscDayHours è la riga per (race + day + user).
-     * Se non esiste => 0.
+     * Ore lavorate giornaliere da orari DSC.
+     * Calcola mattina + pomeriggio. Se manca una coppia start/end, quella fascia vale 0.
      */
     public function computeWorkedHoursForDay(?ReportDayDsc $dscDayHours): float
     {
@@ -122,29 +120,40 @@ class ReportCalculator
             return 0.0;
         }
 
-        $m = $this->diffHours($dscDayHours->morning_start, $dscDayHours->morning_end);
-        $a = $this->diffHours($dscDayHours->afternoon_start, $dscDayHours->afternoon_end);
+        $morning = $this->diffHours($dscDayHours->morning_start ?? null, $dscDayHours->morning_end ?? null);
+        $afternoon = $this->diffHours($dscDayHours->afternoon_start ?? null, $dscDayHours->afternoon_end ?? null);
 
-        return round($m + $a, 2);
+        return round($morning + $afternoon, 2);
     }
 
-    private function diffHours(?string $start, ?string $end): float
+    private function diffHours($start, $end): float
     {
         if (!$start || !$end) {
             return 0.0;
         }
 
         try {
-            $start = trim($start);
-            $end = trim($end);
+            $start = trim((string) $start);
+            $end = trim((string) $end);
 
-            $formatStart = (substr_count($start, ':') === 2) ? 'H:i:s' : 'H:i';
-            $formatEnd = (substr_count($end, ':') === 2) ? 'H:i:s' : 'H:i';
+            if (!preg_match('/\d{2}:\d{2}(?::\d{2})?/', $start, $startMatch)) {
+                return 0.0;
+            }
+
+            if (!preg_match('/\d{2}:\d{2}(?::\d{2})?/', $end, $endMatch)) {
+                return 0.0;
+            }
+
+            $start = $startMatch[0];
+            $end = $endMatch[0];
+
+            $formatStart = substr_count($start, ':') === 2 ? 'H:i:s' : 'H:i';
+            $formatEnd = substr_count($end, ':') === 2 ? 'H:i:s' : 'H:i';
 
             $s = \Carbon\Carbon::createFromFormat($formatStart, $start);
             $e = \Carbon\Carbon::createFromFormat($formatEnd, $end);
 
-            if ($e->lt($s)) {
+            if ($e->lessThanOrEqualTo($s)) {
                 return 0.0;
             }
 
@@ -154,26 +163,40 @@ class ReportCalculator
         }
     }
 
+    /**
+     * Ordinario:
+     * - da più di 0 fino a 4 ore: 30€ totali
+     * - oltre 4 ore: 30€ + 6€/h dalla quinta ora in poi
+     */
     private function amountOrdinary(float $hours): float
     {
-        if ($hours <= 0)
+        if ($hours <= 0) {
             return 0.0;
+        }
 
-        $first = min($hours, 4.0);
-        $extra = max($hours - 4.0, 0.0);
+        if ($hours <= 4.0) {
+            return 30.0;
+        }
 
-        return round(($first * 30.0) + ($extra * 36.0), 2);
+        return round(30.0 + (($hours - 4.0) * 6.0), 2);
     }
 
+    /**
+     * Specialistico:
+     * - da più di 0 fino a 4 ore: 40€ totali
+     * - oltre 4 ore: 40€ + 10€/h dalla quinta ora in poi
+     */
     private function amountSpecial(float $hours): float
     {
-        if ($hours <= 0)
+        if ($hours <= 0) {
             return 0.0;
+        }
 
-        $first = min($hours, 4.0);
-        $extra = max($hours - 4.0, 0.0);
+        if ($hours <= 4.0) {
+            return 40.0;
+        }
 
-        return round(($first * 40.0) + ($extra * 50.0), 2);
+        return round(40.0 + (($hours - 4.0) * 10.0), 2);
     }
 
     public function computeServiceTotalForDay(?ReportDayAdmin $adminDayRow): array
@@ -184,6 +207,7 @@ class ReportCalculator
         $ordAmount = $this->amountOrdinary($ordHours);
         $specAmount = $this->amountSpecial($specHours);
 
+        // Tariffa media: serve solo per la colonna "Tar.", perché la tariffa reale è a scaglioni.
         $ordRateAvg = $ordHours > 0 ? round($ordAmount / $ordHours, 2) : 0.0;
         $specRateAvg = $specHours > 0 ? round($specAmount / $specHours, 2) : 0.0;
 

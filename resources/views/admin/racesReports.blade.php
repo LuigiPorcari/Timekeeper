@@ -1,4 +1,73 @@
 <x-layout documentTitle="Report Gara">
+    @php
+        $calculateHoursBetween = function ($startValue, $endValue) {
+            if (!$startValue || !$endValue) {
+                return 0.0;
+            }
+
+            try {
+                $startValue = trim((string) $startValue);
+                $endValue = trim((string) $endValue);
+
+                if (!preg_match('/\d{2}:\d{2}(?::\d{2})?/', $startValue, $startMatch)) {
+                    return 0.0;
+                }
+
+                if (!preg_match('/\d{2}:\d{2}(?::\d{2})?/', $endValue, $endMatch)) {
+                    return 0.0;
+                }
+
+                $startValue = $startMatch[0];
+                $endValue = $endMatch[0];
+
+                $formatStart = substr_count($startValue, ':') === 2 ? 'H:i:s' : 'H:i';
+                $formatEnd = substr_count($endValue, ':') === 2 ? 'H:i:s' : 'H:i';
+
+                $start = \Carbon\Carbon::createFromFormat($formatStart, $startValue);
+                $end = \Carbon\Carbon::createFromFormat($formatEnd, $endValue);
+
+                if ($end->lessThanOrEqualTo($start)) {
+                    return 0.0;
+                }
+
+                return round($start->diffInMinutes($end) / 60, 2);
+            } catch (\Throwable $e) {
+                return 0.0;
+            }
+        };
+
+        $calculateDscWorkedHours = function ($dscDay) use ($calculateHoursBetween) {
+            if (!$dscDay) {
+                return 0.0;
+            }
+
+            return $calculateHoursBetween($dscDay->morning_start ?? null, $dscDay->morning_end ?? null) +
+                $calculateHoursBetween($dscDay->afternoon_start ?? null, $dscDay->afternoon_end ?? null);
+        };
+
+        $formatDscTime = function ($value) {
+            return $value ? substr((string) $value, 0, 5) : '—';
+        };
+
+        $formatDscDayDetail = function ($dscDay) use ($formatDscTime) {
+            if (!$dscDay) {
+                return null;
+            }
+
+            $day = $dscDay->work_date ? \Carbon\Carbon::parse($dscDay->work_date)->format('d/m/Y') : 'Giorno';
+
+            return $day .
+                ': ' .
+                $formatDscTime($dscDay->morning_start ?? null) .
+                '-' .
+                $formatDscTime($dscDay->morning_end ?? null) .
+                ' / ' .
+                $formatDscTime($dscDay->afternoon_start ?? null) .
+                '-' .
+                $formatDscTime($dscDay->afternoon_end ?? null);
+        };
+    @endphp
+
     <main class="container-fluid mt-5 pt-5" id="main-content" aria-labelledby="report-title">
         <div class="row justify-content-center">
             <div class="col-12 col-xxl-11">
@@ -35,6 +104,7 @@
                                             <th rowspan="2">€/Km</th>
                                             <th rowspan="2">Servizio Giornaliero</th>
                                             <th rowspan="2">Servizio Speciale</th>
+                                            <th rowspan="2">Ore da orari DSC</th>
                                             <th rowspan="2">Tariffa</th>
                                             <th rowspan="2">Km</th>
                                             <th rowspan="2">Importo Km</th>
@@ -97,6 +167,24 @@
                                                 };
                                                 $apps = array_filter(array_map($prettySpec, $appsRaw));
                                                 $appsLabel = $apps ? implode(', ', $apps) : '—';
+
+                                                $dscRows = \App\Models\ReportDayDsc::where('race_id', $race->id)
+                                                    ->where('user_id', $record->user_id)
+                                                    ->orderBy('work_date')
+                                                    ->get();
+
+                                                $dscWorkedHours = $dscRows->sum(function ($dscDay) use (
+                                                    $calculateDscWorkedHours,
+                                                ) {
+                                                    return $calculateDscWorkedHours($dscDay);
+                                                });
+
+                                                $dscHoursDetails = $dscRows
+                                                    ->map(function ($dscDay) use ($formatDscDayDetail) {
+                                                        return $formatDscDayDetail($dscDay);
+                                                    })
+                                                    ->filter()
+                                                    ->values();
                                             @endphp
 
                                             {{-- Riga principale dati --}}
@@ -108,6 +196,8 @@
                                                 <td>{{ number_format($ratePerKm, 2, ',', '.') }}</td>
                                                 <td>{{ $record->daily_service }}</td>
                                                 <td>{{ $record->special_service }}</td>
+                                                <td><strong>{{ number_format($dscWorkedHours, 2, ',', '.') }}</strong>
+                                                </td>
                                                 <td>{{ $record->rate_documented }}</td>
                                                 <td>{{ $kmDisplay }}</td>
                                                 <td>{{ number_format((float) $amount, 2, ',', '.') }}</td>
@@ -123,8 +213,21 @@
 
                                             {{-- Riga secondaria: Apparecchiature + Descrizione + Allegati --}}
                                             <tr class="bg-light">
-                                                <td colspan="17">
+                                                <td colspan="18">
                                                     <div class="py-2">
+                                                        <div class="mb-1">
+                                                            <strong>Orari DSC:</strong>
+                                                            @if ($dscHoursDetails->isNotEmpty())
+                                                                @foreach ($dscHoursDetails as $detail)
+                                                                    <span
+                                                                        class="badge bg-secondary-subtle text-secondary-emphasis border me-1 mb-1">
+                                                                        {{ $detail }}
+                                                                    </span>
+                                                                @endforeach
+                                                            @else
+                                                                <span class="text-muted">—</span>
+                                                            @endif
+                                                        </div>
                                                         <div class="mb-1">
                                                             <strong>Apparecchiature:</strong>
                                                             <span class="text-break">{{ $appsLabel }}</span>
@@ -159,7 +262,7 @@
 
                                         {{-- Totale complessivo --}}
                                         <tr class="table-secondary fw-bold">
-                                            <td colspan="16" class="text-end">Totale Generale</td>
+                                            <td colspan="17" class="text-end">Totale Generale</td>
                                             <td>{{ number_format($totalSum, 2, ',', '.') }}</td>
                                         </tr>
                                     </tbody>

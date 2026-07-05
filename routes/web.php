@@ -76,6 +76,8 @@ Route::get('/admin/timekeeperDetails/{timekeeper}', [AdminController::class, 'ti
 Route::post('/admin/timekeeperDetails/update/{timekeeper}', [AdminController::class, 'updateTimekeeper'])->name('update.timekeeper');
 Route::post('/admin/race/create', [AdminController::class, 'storeRace'])->name('race.store');
 Route::post('/admin/availability/store', [AdminController::class, 'storeAvailability'])->name('availability.store');
+Route::get('/admin/races/calendar', [AdminController::class, 'racesCalendar'])
+    ->name('admin.racesCalendar');
 //!ROTTE TIMEKEEPER
 Route::get('/races/{race}/records', [TimekeeperController::class, 'manage'])->name('records.manage');
 Route::post('/races/{race}/records', [TimekeeperController::class, 'store'])->name('records.store');
@@ -161,12 +163,23 @@ Route::middleware(['auth'])
             ->name('timekeeperReportFullStack');
     });
 
-    Route::post('/races/{race}/report-entry/delete', [TimekeeperController::class, 'deleteMyEntry'])
+Route::post('/races/{race}/report-entry/delete', [TimekeeperController::class, 'deleteMyEntry'])
     ->name('records.entry.delete');
 
 
 
-    Route::get('/secretariat/races/{race}/report-full/excel', [SecretariatController::class, 'exportReportFullExcel'])
+Route::get('/secretariat/races/{race}/report-full/excel', [SecretariatController::class, 'exportReportFullExcel'])
     ->name('secretariat.races.reportFullExcel');
 
 
+Route::put('/secretariat/records/{entry}', [SecretariatController::class, 'updateRecord'])
+    ->name('secretariat.records.update');
+
+Route::post('/secretariat/records/{entry}/confirm', [SecretariatController::class, 'confirmRecord'])
+    ->name('secretariat.records.confirm');
+
+Route::post('/secretariat/races/{race}/records/confirm-all', [SecretariatController::class, 'confirmAllRecords'])
+    ->name('secretariat.races.records.confirmAll');
+
+    Route::put('/secretariat/races/{race}/timekeepers/{user}/report', [SecretariatController::class, 'updateTimekeeperReport'])
+    ->name('secretariat.races.timekeeperReport.update');

@@ -33,8 +33,6 @@
 
     $speseVarieGara = $settings && $settings->spese_varie_gara !== null ? (float) $settings->spese_varie_gara : 0.0;
 
-    $noteAppGara = $settings->apparecchiature_note ?? '';
-
     $daysCount = is_array($days) ? count($days) : 0;
 @endphp
 
@@ -346,11 +344,11 @@
                         <th colspan="1" class="z-0 g-orari sep-right text-center">Tot. servizio</th>
 
                         <th colspan="4" class="z-0 g-dsc sep-right text-center">DSC</th>
-                        <th colspan="5" class="z-0 g-segr sep-right text-center">Segreteria (gara)</th>
+                        <th colspan="4" class="z-0 g-segr sep-right text-center">Segreteria (gara)</th>
                         <th colspan="6" class="z-0 g-spese sep-right text-center">Spese (crono)</th>
 
                         <th colspan="3" class="z-0 g-totali sep-right text-center">Totali</th>
-                        <th colspan="3" class="z-0 g-note text-center">Note / Allegati / Stato</th>
+                        <th colspan="4" class="z-0 g-note text-center">Note / Allegati / Stato</th>
                     </tr>
 
                     {{-- HEADER COLONNE --}}
@@ -359,11 +357,11 @@
                         <th class="z-3 sticky-col-2 w-col-dom sep-right">Domicilio</th>
 
                         <th class="z-0 g-orari nowrap">Giorno</th>
-                        {{-- <th class="z-0 g-orari nowrap">Inizio matt.</th>
+                        <th class="z-0 g-orari nowrap">Inizio matt.</th>
                         <th class="z-0 g-orari nowrap">Fine matt.</th>
                         <th class="z-0 g-orari nowrap">Inizio pom.</th>
-                        <th class="z-0 g-orari nowrap">Fine pom.</th> --}}
-                        <th class="z-0 g-orari nowrap sep-right">Ore lav.</th>
+                        <th class="z-0 g-orari nowrap">Fine pom.</th>
+                        <th class="z-0 g-orari nowrap sep-right">Ore da orari</th>
 
                         <th class="z-0 g-ord nowrap">Ore ord.</th>
                         <th class="z-0 g-ord nowrap">Tar. ord.</th>
@@ -383,15 +381,14 @@
                         <th class="z-0 g-segr nowrap">Coeff Km</th>
                         <th class="z-0 g-segr nowrap">Van cost</th>
                         <th class="z-0 g-segr nowrap">Contributo org.</th>
-                        <th class="z-0 g-segr nowrap">Spese varie</th>
-                        <th class="z-0 g-segr nowrap sep-right">Note app.</th>
+                        <th class="z-0 g-segr nowrap sep-right">Spese varie</th>
 
                         <th class="z-0 g-spese nowrap">Km</th>
                         <th class="z-0 g-spese nowrap">Imp. Km</th>
                         <th class="z-0 g-spese nowrap">Pedaggi</th>
                         <th class="z-0 g-spese nowrap">Vitto</th>
-                        <th class="z-0 g-spese nowrap">Alloggio</th>
-                        <th class="z-0 g-spese nowrap sep-right">Spese varie</th>
+                        <th class="z-0 g-spese nowrap">Spese varie</th>
+                        <th class="z-0 g-spese nowrap sep-right">Note spese</th>
 
                         <th class="z-0 g-totali nowrap">Tot. parte gara</th>
                         <th class="z-0 g-totali nowrap">TotaleCrono</th>
@@ -399,7 +396,8 @@
 
                         <th class="z-0 g-note nowrap">Note crono</th>
                         <th class="z-0 g-note nowrap">Allegati</th>
-                        <th class="z-0 g-note nowrap">Stato</th>
+                        <th class="z-0 g-note nowrap">Stato DSC</th>
+                        <th class="z-0 g-note nowrap">Stato segreteria</th>
                     </tr>
                 </thead>
 
@@ -455,10 +453,10 @@
                                 @endif
 
                                 <td class="g-orari nowrap">{{ $dayLabel }}</td>
-                                {{-- <td class="g-orari nowrap">{{ $dscDay?->morning_start ?? '—' }}</td>
+                                <td class="g-orari nowrap">{{ $dscDay?->morning_start ?? '—' }}</td>
                                 <td class="g-orari nowrap">{{ $dscDay?->morning_end ?? '—' }}</td>
                                 <td class="g-orari nowrap">{{ $dscDay?->afternoon_start ?? '—' }}</td>
-                                <td class="g-orari nowrap">{{ $dscDay?->afternoon_end ?? '—' }}</td> --}}
+                                <td class="g-orari nowrap">{{ $dscDay?->afternoon_end ?? '—' }}</td>
                                 <td class="g-orari fw-semibold num sep-right">{{ number_format($workedHours, 2) }}
                                 </td>
 
@@ -493,11 +491,8 @@
                                         {{ number_format($vanCostRace, 2) }}</td>
                                     <td rowspan="{{ $rowspan }}" class="g-segr num">
                                         {{ number_format($contributoOrganizzativo, 2) }}</td>
-                                    <td rowspan="{{ $rowspan }}" class="g-segr num">
+                                    <td rowspan="{{ $rowspan }}" class="g-segr num sep-right">
                                         {{ number_format($speseVarieGara, 2) }}</td>
-                                    <td rowspan="{{ $rowspan }}" class="g-segr sep-right">
-                                        {{ $noteAppGara !== '' ? $noteAppGara : '—' }}
-                                    </td>
 
                                     <td rowspan="{{ $rowspan }}" class="g-spese num">
                                         {{ number_format((float) ($entry->km ?? 0), 2) }}</td>
@@ -508,9 +503,9 @@
                                     <td rowspan="{{ $rowspan }}" class="g-spese num">
                                         {{ number_format((float) ($entry->vitto ?? 0), 2) }}</td>
                                     <td rowspan="{{ $rowspan }}" class="g-spese num">
-                                        {{ number_format((float) ($entry->alloggio ?? 0), 2) }}</td>
-                                    <td rowspan="{{ $rowspan }}" class="g-spese num sep-right">
                                         {{ number_format((float) ($entry->spese_varie ?? 0), 2) }}</td>
+                                    <td rowspan="{{ $rowspan }}" class="g-spese sep-right">
+                                        {{ $entry->spese_varie_note ?? '—' }}</td>
 
                                     <td rowspan="{{ $rowspan }}" class="g-totali fw-semibold num">
                                         {{ number_format($totalRacePart, 2) }}</td>
@@ -541,10 +536,20 @@
                                     <td rowspan="{{ $rowspan }}" class="g-note nowrap">
                                         @if ($entry->confirmed)
                                             <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i> Confermato
+                                                <i class="fas fa-check-circle me-1"></i> DSC
                                             </span>
                                         @else
                                             <span class="badge bg-secondary">Non confermato</span>
+                                        @endif
+                                    </td>
+
+                                    <td rowspan="{{ $rowspan }}" class="g-note nowrap">
+                                        @if ($entry->secretariat_confirmed)
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-lock me-1"></i> Chiuso
+                                            </span>
+                                        @else
+                                            <span class="badge bg-warning text-dark">Modificabile</span>
                                         @endif
                                     </td>
                                 @endif
@@ -628,7 +633,7 @@
                 toggles.forEach(tg => {
                     const group = tg.getAttribute('data-group');
                     const keep = (group === 'g-orari' || group === 'g-totali' || group ===
-                    'g-note');
+                        'g-note');
                     tg.checked = keep;
                     setGroupVisible(group, keep);
                 });

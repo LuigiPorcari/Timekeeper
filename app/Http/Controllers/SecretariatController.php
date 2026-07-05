@@ -59,7 +59,10 @@ class SecretariatController extends Controller
             }))
             ->withCount([
                 'reportEntries as records_total',
-                'reportEntries as records_unconfirmed' => fn($qq) => $qq->where('confirmed', false),
+                'reportEntries as records_unconfirmed' => fn($qq) => $qq->where(function ($query) {
+                    $query->where('secretariat_confirmed', false)
+                        ->orWhereNull('secretariat_confirmed');
+                }),
             ])
             ->orderByDesc('date_of_race')
             ->paginate(20)
@@ -158,6 +161,19 @@ class SecretariatController extends Controller
                 ->keyBy('user_id');
         }
 
+        $adminDaysByUserDay = ReportDayAdmin::where('race_id', $race->id)
+            ->get()
+            ->keyBy(function ($row) {
+                return $row->user_id . '|' . Carbon::parse($row->work_date)->toDateString();
+            });
+
+        $dscDaysByUserDay = ReportDayDsc::where('race_id', $race->id)
+            ->whereNotNull('user_id')
+            ->get()
+            ->keyBy(function ($row) {
+                return $row->user_id . '|' . Carbon::parse($row->work_date)->toDateString();
+            });
+
         // ✅ Righe riepilogo “gara” (questa parte può restare su TUTTI i crono, perché è riepilogo gara)
         $rows = $timekeepers->map(function ($tk) use ($race, $entries, $dscRace, $settings, $calc) {
             $entry = $entries->get($tk->id);
@@ -171,8 +187,10 @@ class SecretariatController extends Controller
                     'vitto' => null,
                     'alloggio' => null,
                     'spese_varie' => null,
+                    'spese_varie_note' => null,
                     'note' => null,
                     'confirmed' => false,
+                    'secretariat_confirmed' => false,
                 ]);
                 $entry->setRelation('user', $tk);
                 $entry->setRelation('attachments', collect());
@@ -204,6 +222,8 @@ class SecretariatController extends Controller
 
             'settings' => $settings,
             'adminDay' => $adminDay,
+            'adminDaysByUserDay' => $adminDaysByUserDay,
+            'dscDaysByUserDay' => $dscDaysByUserDay,
 
             'rows' => $rows,                       // riepilogo gara (tutti)
             'rowsForDayAdmin' => $rowsForDayAdmin, // ✅ segreteria ore (solo coinvolti)
@@ -217,11 +237,14 @@ class SecretariatController extends Controller
      */
     public function saveRaceAdminSettings(Request $request, Race $race)
     {
+        if ($this->raceIsClosedBySecretariat($race)) {
+            return back()->with('error', 'Questa gara è stata confermata dalla segreteria e non può più essere modificata.');
+        }
+
         $validated = $request->validate([
             'van_cost' => 'nullable|numeric|min:0',
             'coeff_km' => 'nullable|numeric|min:0|max:10',
             'contributo_organizzativo' => 'nullable|numeric|min:0',
-            'apparecchiature_note' => 'nullable|string',
             'spese_varie_gara' => 'nullable|numeric|min:0',
         ]);
 
@@ -231,7 +254,6 @@ class SecretariatController extends Controller
                 'coeff_km' => $validated['coeff_km'] ?? 0.36,
                 'van_cost' => $validated['van_cost'] ?? null,
                 'contributo_organizzativo' => $validated['contributo_organizzativo'] ?? null,
-                'apparecchiature_note' => $validated['apparecchiature_note'] ?? null,
                 'spese_varie_gara' => $validated['spese_varie_gara'] ?? null,
             ]
         );
@@ -242,10 +264,203 @@ class SecretariatController extends Controller
     }
 
     /**
+     * Salva/modifica i dati del report crono da parte della segreteria.
+     * La segreteria può modificare anche dopo la conferma DSC, ma non dopo la chiusura segreteria.
+     */
+    public function updateRecord(Request $request, ReportEntry $entry)
+    {
+        if ($entry->secretariat_confirmed) {
+            return back()->with('error', 'Questo report è stato confermato dalla segreteria e non può più essere modificato.');
+        }
+
+        $validated = $request->validate([
+            'km' => 'nullable|numeric|min:0',
+            'pedaggi' => 'nullable|numeric|min:0',
+            'vitto_tipo' => 'required|in:forfettario,offerto,documentato',
+            'vitto_documentato' => 'required_if:vitto_tipo,documentato|nullable|numeric|min:0',
+            'spese_varie' => 'nullable|numeric|min:0',
+            'spese_varie_note' => 'nullable|string|max:1000',
+            'note' => 'nullable|string',
+        ]);
+
+        $vitto = $this->resolveVittoAmount(
+            $validated['vitto_tipo'],
+            $validated['vitto_documentato'] ?? null
+        );
+
+        $entry->forceFill([
+            'km' => $validated['km'] ?? null,
+            'pedaggi' => $validated['pedaggi'] ?? null,
+            'vitto' => $vitto,
+            'alloggio' => null,
+            'spese_varie' => $validated['spese_varie'] ?? null,
+            'spese_varie_note' => $validated['spese_varie_note'] ?? null,
+            'note' => $validated['note'] ?? null,
+        ])->save();
+
+        return redirect()
+            ->route('secretariat.races.report', ['race' => $entry->race_id, 'day' => request('day')])
+            ->with('success', 'Report crono modificato dalla segreteria.');
+    }
+
+    /**
+     * Salva tutti i dati modificabili dalla segreteria per un singolo cronometrista.
+     */
+    public function updateTimekeeperReport(Request $request, Race $race, User $user)
+    {
+        $isAssigned = $race->users()
+            ->where('users.id', $user->id)
+            ->exists();
+
+        if (!$isAssigned) {
+            return back()->with('error', 'Il cronometrista selezionato non è assegnato a questa gara.');
+        }
+
+        $entry = ReportEntry::firstOrNew([
+            'race_id' => $race->id,
+            'user_id' => $user->id,
+        ]);
+
+        if ($entry->exists && $entry->secretariat_confirmed) {
+            return back()->with('error', 'Questo report è stato confermato dalla segreteria e non può più essere modificato.');
+        }
+
+        $validated = $request->validate([
+            'km' => 'nullable|numeric|min:0',
+            'pedaggi' => 'nullable|numeric|min:0',
+            'vitto_tipo' => 'required|in:forfettario,offerto,documentato',
+            'vitto_documentato' => 'required_if:vitto_tipo,documentato|nullable|numeric|min:0',
+            'spese_varie' => 'nullable|numeric|min:0',
+            'spese_varie_note' => 'nullable|string|max:1000',
+            'note' => 'nullable|string',
+            'day_admin' => 'nullable|array',
+            'day_admin.*.hours_ordinary_service' => 'nullable|numeric|min:0|max:24',
+            'day_admin.*.hours_special_service' => 'nullable|numeric|min:0|max:24',
+            'selected_day' => 'nullable|date',
+        ]);
+
+        $vitto = $this->resolveVittoAmount(
+            $validated['vitto_tipo'],
+            $validated['vitto_documentato'] ?? null
+        );
+
+        $entry->forceFill([
+            'km' => $validated['km'] ?? null,
+            'pedaggi' => $validated['pedaggi'] ?? null,
+            'vitto' => $vitto,
+            'alloggio' => null,
+            'spese_varie' => $validated['spese_varie'] ?? null,
+            'spese_varie_note' => $validated['spese_varie_note'] ?? null,
+            'note' => $validated['note'] ?? null,
+        ])->save();
+
+        $start = Carbon::parse($race->date_of_race)->toDateString();
+        $end = $race->date_end ? Carbon::parse($race->date_end)->toDateString() : $start;
+        if ($end < $start) {
+            [$start, $end] = [$end, $start];
+        }
+
+        $dayRows = $validated['day_admin'] ?? [];
+
+        foreach ($dayRows as $day => $values) {
+            $workDate = Carbon::parse($day)->toDateString();
+
+            if ($workDate < $start || $workDate > $end) {
+                continue;
+            }
+
+            $isInvolved = ReportDayDsc::where('race_id', $race->id)
+                ->where('user_id', $user->id)
+                ->where('work_date', $workDate)
+                ->exists();
+
+            if (!$isInvolved) {
+                continue;
+            }
+
+            ReportDayAdmin::updateOrCreate(
+                [
+                    'race_id' => $race->id,
+                    'user_id' => $user->id,
+                    'work_date' => $workDate,
+                ],
+                [
+                    'hours_ordinary_service' => $values['hours_ordinary_service'] ?? null,
+                    'hours_special_service' => $values['hours_special_service'] ?? null,
+                ]
+            );
+        }
+
+        return redirect()
+            ->route('secretariat.races.report', [
+                'race' => $race->id,
+                'day' => $validated['selected_day'] ?? request('day'),
+            ])
+            ->with('success', 'Dati del report aggiornati per ' . $user->surname . ' ' . $user->name . '.');
+    }
+
+    /**
+     * Conferma definitiva un singolo report crono.
+     */
+    public function confirmRecord(Request $request, ReportEntry $entry)
+    {
+        if ($entry->secretariat_confirmed) {
+            return back()->with('error', 'Questo report è già stato confermato dalla segreteria.');
+        }
+
+        $entry->forceFill([
+            'secretariat_confirmed' => true,
+            'secretariat_confirmed_at' => now(),
+        ])->save();
+
+        return redirect()
+            ->route('secretariat.races.report', ['race' => $entry->race_id, 'day' => request('day')])
+            ->with('success', 'Report confermato definitivamente dalla segreteria.');
+    }
+
+    /**
+     * Conferma definitivamente tutti i report crono della gara.
+     * Se un cronometrista assegnato non ha ancora un ReportEntry, ne crea uno vuoto e lo chiude.
+     */
+    public function confirmAllRecords(Request $request, Race $race)
+    {
+        $timekeepers = $race->users()
+            ->select('users.id')
+            ->get();
+
+        foreach ($timekeepers as $timekeeper) {
+            $entry = ReportEntry::firstOrNew([
+                'race_id' => $race->id,
+                'user_id' => $timekeeper->id,
+            ]);
+
+            $entry->forceFill([
+                'km' => $entry->km,
+                'pedaggi' => $entry->pedaggi,
+                'vitto' => $entry->vitto,
+                'alloggio' => null,
+                'spese_varie' => $entry->spese_varie,
+                'spese_varie_note' => $entry->spese_varie_note,
+                'note' => $entry->note,
+                'secretariat_confirmed' => true,
+                'secretariat_confirmed_at' => now(),
+            ])->save();
+        }
+
+        return redirect()
+            ->route('secretariat.races.report', ['race' => $race->id, 'day' => request('day')])
+            ->with('success', 'Tutti i report della gara sono stati confermati definitivamente dalla segreteria.');
+    }
+
+    /**
      * Salva/modifica ore segreteria per una giornata (per ogni crono)
      */
     public function saveDayAdmin(Request $request, Race $race)
     {
+        if ($this->raceIsClosedBySecretariat($race)) {
+            return back()->with('error', 'Questa gara è stata confermata dalla segreteria e non può più essere modificata.');
+        }
+
         $validated = $request->validate([
             'day' => 'required|date',
             'hours_special_service' => 'nullable|array',
@@ -355,6 +570,41 @@ class SecretariatController extends Controller
         $writer->save($tmpPath);
 
         return response()->download($tmpPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    private function raceIsClosedBySecretariat(Race $race): bool
+    {
+        $total = ReportEntry::where('race_id', $race->id)->count();
+
+        if ($total === 0) {
+            return false;
+        }
+
+        $open = ReportEntry::where('race_id', $race->id)
+            ->where(function ($query) {
+                $query->where('secretariat_confirmed', false)
+                    ->orWhereNull('secretariat_confirmed');
+            })
+            ->exists();
+
+        return !$open;
+    }
+
+    private function resolveVittoAmount(string $vittoTipo, $vittoDocumentato = null)
+    {
+        if ($vittoTipo === 'forfettario') {
+            return 15;
+        }
+
+        if ($vittoTipo === 'offerto') {
+            return 0;
+        }
+
+        if ($vittoTipo === 'documentato') {
+            return $vittoDocumentato;
+        }
+
+        return null;
     }
 
 }
