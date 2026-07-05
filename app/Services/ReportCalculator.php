@@ -55,7 +55,6 @@ class ReportCalculator
 
         $pedaggi = (float) ($entry->pedaggi ?? 0);
         $vitto = (float) ($entry->vitto ?? 0);
-        $alloggio = (float) ($entry->alloggio ?? 0);
         $speseVarie = (float) ($entry->spese_varie ?? 0);
 
         $vanCost = 0.00;
@@ -64,7 +63,7 @@ class ReportCalculator
         }
 
         $totalRacePart = round(
-            $kmAmount + $pedaggi + $vitto + $alloggio + $speseVarie + $missedMealsAmount + $vanCost,
+            $kmAmount + $pedaggi + $vitto + $speseVarie + $missedMealsAmount + $vanCost,
             2
         );
 
