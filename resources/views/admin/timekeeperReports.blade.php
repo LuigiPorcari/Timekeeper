@@ -66,6 +66,62 @@
                 '-' .
                 $formatDscTime($dscDay->afternoon_end ?? null);
         };
+
+        $missedMealsFormattersByRace = [];
+
+        $getMissedMealsDataFormatterForRace = function ($raceId) use (&$missedMealsFormattersByRace) {
+            $raceId = (int) $raceId;
+
+            if (!array_key_exists($raceId, $missedMealsFormattersByRace)) {
+                $dscRaceForMeals = \App\Models\ReportRaceDsc::where('race_id', $raceId)->first();
+                $detail = $dscRaceForMeals->missed_meals_detail ?? [];
+
+                if (is_string($detail)) {
+                    $decodedDetail = json_decode($detail, true);
+                    $detail = json_last_error() === JSON_ERROR_NONE && is_array($decodedDetail) ? $decodedDetail : [];
+                }
+
+                if (!is_array($detail)) {
+                    $detail = [];
+                }
+
+                $missedMealsFormattersByRace[$raceId] = function ($userId) use ($detail) {
+                    $mealData = $detail[$userId] ?? ($detail[(string) $userId] ?? []);
+
+                    if (is_string($mealData)) {
+                        $decodedMealData = json_decode($mealData, true);
+                        $mealData =
+                            json_last_error() === JSON_ERROR_NONE && is_array($decodedMealData) ? $decodedMealData : [];
+                    }
+
+                    if (!is_array($mealData)) {
+                        $mealData = [];
+                    }
+
+                    $pranzo = !empty($mealData['pranzo']) || !empty($mealData['lunch']);
+                    $cena = !empty($mealData['cena']) || !empty($mealData['dinner']);
+                    $count = ($pranzo ? 1 : 0) + ($cena ? 1 : 0);
+
+                    if ($pranzo && $cena) {
+                        $label = 'Pranzo + Cena';
+                    } elseif ($pranzo) {
+                        $label = 'Pranzo';
+                    } elseif ($cena) {
+                        $label = 'Cena';
+                    } else {
+                        $label = '—';
+                    }
+
+                    return [
+                        'count' => $count,
+                        'amount' => $count * 15,
+                        'label' => $label,
+                    ];
+                };
+            }
+
+            return $missedMealsFormattersByRace[$raceId];
+        };
     @endphp
 
     <main class="container mt-5 pt-5" id="main-content" aria-labelledby="report-title">
@@ -96,6 +152,10 @@
                             <p class="text-muted mb-0" role="status">Nessun record inserito per questa gara.</p>
                         </div>
                     @else
+                        @php
+                            $getMissedMealsData = $getMissedMealsDataFormatterForRace($race->id);
+                        @endphp
+
                         <div class="card-body p-0">
                             <div class="table-responsive" style="overflow-x: visible;">
                                 <table
@@ -113,6 +173,7 @@
                                             <th rowspan="2">Importo Km</th>
                                             <th colspan="4" class="text-center">Spesa Documentata</th>
                                             <th colspan="3" class="text-center">Spesa NON Documentata</th>
+                                            <th rowspan="2">Pasti mancati</th>
                                             <th rowspan="2">Totale</th>
                                         </tr>
                                         <tr>
@@ -197,12 +258,17 @@
                                                 <td>{{ $record->food_not_documented }}</td>
                                                 <td>{{ $record->daily_allowances_not_documented }}</td>
                                                 <td>{{ $record->special_daily_allowances_not_documented }}</td>
+                                                @php $mealInfo = $getMissedMealsData($record->user_id); @endphp
+                                                <td>
+                                                    {{ $mealInfo['count'] }}
+                                                    <span class="text-muted">({{ $mealInfo['label'] }})</span>
+                                                </td>
                                                 <td><strong>{{ number_format($rowTotal, 2, ',', '.') }}</strong></td>
                                             </tr>
 
                                             {{-- Riga secondaria: Apparecchiature + Descrizione + Allegati --}}
                                             <tr class="bg-light">
-                                                <td colspan="17">
+                                                <td colspan="18">
                                                     <div class="py-2">
                                                         <div class="mb-1">
                                                             <strong>Orari DSC:</strong>

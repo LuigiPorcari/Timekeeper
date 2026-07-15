@@ -46,7 +46,8 @@ class ReportCalculator
         ?ReportRaceDsc $dscRace,
         ?ReportAdminRaceSettings $settings
     ): array {
-        $missedMeals = (int) ($dscRace?->missed_meals ?? 0);
+        $userId = $entry->user_id ?? $entry->user?->id ?? null;
+        $missedMeals = $this->computeMissedMealsCountForUser($dscRace, $userId);
         $missedMealsAmount = round($missedMeals * 15, 2);
 
         $coeff = $settings?->coeff_km !== null ? (float) $settings->coeff_km : 0.36;
@@ -107,6 +108,63 @@ class ReportCalculator
     {
         $missedMeals = (int) ($dscRace?->missed_meals ?? 0);
         return round($missedMeals * 15, 2);
+    }
+
+    /**
+     * Numero pasti mancati del singolo cronometrista.
+     *
+     * Il campo report_race_dsc.missed_meals resta il totale gara,
+     * mentre missed_meals_detail contiene il dettaglio per user_id:
+     * [user_id => ['pranzo' => true, 'cena' => true]].
+     */
+    public function computeMissedMealsCountForUser(?ReportRaceDsc $dscRace, $userId): int
+    {
+        if (!$dscRace) {
+            return 0;
+        }
+
+        $detail = $this->normalizeMissedMealsDetail($dscRace->missed_meals_detail ?? null);
+
+        // Compatibilità con vecchie gare: se non esiste ancora il dettaglio,
+        // non possiamo sapere a chi appartenevano i pasti, quindi manteniamo il vecchio totale.
+        if (empty($detail)) {
+            return (int) ($dscRace->missed_meals ?? 0);
+        }
+
+        if ($userId === null || $userId === '') {
+            return 0;
+        }
+
+        $mealData = $detail[$userId] ?? $detail[(string) $userId] ?? [];
+
+        if (is_string($mealData)) {
+            $decodedMealData = json_decode($mealData, true);
+            $mealData = json_last_error() === JSON_ERROR_NONE && is_array($decodedMealData) ? $decodedMealData : [];
+        }
+
+        if (!is_array($mealData)) {
+            $mealData = [];
+        }
+
+        $pranzo = !empty($mealData['pranzo']) || !empty($mealData['lunch']);
+        $cena = !empty($mealData['cena']) || !empty($mealData['dinner']);
+
+        return ($pranzo ? 1 : 0) + ($cena ? 1 : 0);
+    }
+
+    public function computeMissedMealsAmountForUser(?ReportRaceDsc $dscRace, $userId): float
+    {
+        return round($this->computeMissedMealsCountForUser($dscRace, $userId) * 15, 2);
+    }
+
+    private function normalizeMissedMealsDetail($detail): array
+    {
+        if (is_string($detail)) {
+            $decoded = json_decode($detail, true);
+            $detail = json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($detail) ? $detail : [];
     }
 
     /**

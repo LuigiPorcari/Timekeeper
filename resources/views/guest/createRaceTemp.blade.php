@@ -1,6 +1,6 @@
 <x-layout documentTitle="Guest Create Race Temp">
     <main class="container pt-5 mt-5" id="main-content" aria-labelledby="page-title">
-        <h1 id="page-title" class="mb-4">Crea nuova gara temporanea</h1>
+        <h1 id="page-title" class="mb-4">Invia richiesta gara</h1>
 
         @if ($errors->any())
             <div class="alert alert-danger">
@@ -21,6 +21,18 @@
                     </div>
 
                     <div class="card-body">
+                        <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                            <i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i>
+                            <div>
+                                <strong>Avviso importante.</strong>
+                                Per eventuali modifiche successive all’invio della richiesta, si prega di contattare
+                                gli admin all’indirizzo:
+                                <a href="mailto:crono.torino@ficr.it" class="alert-link">
+                                    crono.torino@ficr.it
+                                </a>.
+                            </div>
+                        </div>
+
                         <form action="{{ route('raceTemp.store') }}" method="POST" enctype="multipart/form-data"
                             aria-describedby="race-form-description" novalidate>
                             @csrf

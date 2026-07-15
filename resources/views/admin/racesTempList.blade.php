@@ -1,7 +1,7 @@
 {{-- resources/views/secretariat/racesTemp/index.blade.php --}}
 <x-layout documentTitle="Temp Races List">
     <main class="container mt-5 pt-5" id="main-content">
-        <h1 class="mb-4">Gare temporanee</h1>
+        <h1 class="mb-4">Richieste da approvare</h1>
 
         @if (session('success'))
             <div class="alert alert-success alert-dismissible" role="alert">

@@ -108,7 +108,7 @@
                             <span class="ficr-badge-icon me-2">
                                 <i class="fa-solid fa-hourglass-half"></i>
                             </span>
-                            <h2 class="h6 mb-0">Gare temporanee</h2>
+                            <h2 class="h6 mb-0">Richieste gare</h2>
                         </div>
                         <p class="text-muted small flex-grow-1 mb-3">
                             Valida o rifiuta le richieste di inserimento gare inviate dagli utenti.

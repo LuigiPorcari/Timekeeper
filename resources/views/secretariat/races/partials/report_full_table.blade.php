@@ -23,6 +23,63 @@
     $missedMeals = (int) ($dscRace->missed_meals ?? 0);
     $missedMealsAmount = $missedMeals * 15;
 
+    $missedMealsDetailForDisplay = $dscRace->missed_meals_detail ?? [];
+
+    if (is_string($missedMealsDetailForDisplay)) {
+        $decodedMealsForDisplay = json_decode($missedMealsDetailForDisplay, true);
+        $missedMealsDetailForDisplay =
+            json_last_error() === JSON_ERROR_NONE && is_array($decodedMealsForDisplay) ? $decodedMealsForDisplay : [];
+    }
+
+    if (!is_array($missedMealsDetailForDisplay)) {
+        $missedMealsDetailForDisplay = [];
+    }
+
+    $getMissedMealsData = function ($userId) use ($missedMealsDetailForDisplay) {
+        $mealData = $missedMealsDetailForDisplay[$userId] ?? ($missedMealsDetailForDisplay[(string) $userId] ?? []);
+
+        if (is_string($mealData)) {
+            $decodedMealData = json_decode($mealData, true);
+            $mealData = json_last_error() === JSON_ERROR_NONE && is_array($decodedMealData) ? $decodedMealData : [];
+        }
+
+        if (!is_array($mealData)) {
+            $mealData = [];
+        }
+
+        $pranzo = !empty($mealData['pranzo']) || !empty($mealData['lunch']);
+        $cena = !empty($mealData['cena']) || !empty($mealData['dinner']);
+        $count = ($pranzo ? 1 : 0) + ($cena ? 1 : 0);
+
+        if ($pranzo && $cena) {
+            $label = 'Pranzo + Cena';
+        } elseif ($pranzo) {
+            $label = 'Pranzo';
+        } elseif ($cena) {
+            $label = 'Cena';
+        } else {
+            $label = '—';
+        }
+
+        return [
+            'count' => $count,
+            'amount' => $count * 15,
+            'label' => $label,
+        ];
+    };
+
+    $formatMissedMealsDetail = function ($userId) use ($getMissedMealsData) {
+        return $getMissedMealsData($userId)['label'];
+    };
+
+    $countMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
+        return $getMissedMealsData($userId)['count'];
+    };
+
+    $amountMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
+        return $getMissedMealsData($userId)['amount'];
+    };
+
     $vanNeeded = (bool) ($dscRace->van_needed ?? false);
 
     $vanCostRace = $settings && $settings->van_cost !== null ? (float) $settings->van_cost : 0.0;
@@ -343,7 +400,7 @@
                         <th colspan="3" class="z-0 g-spec sep-right text-center">Specialistico</th>
                         <th colspan="1" class="z-0 g-orari sep-right text-center">Tot. servizio</th>
 
-                        <th colspan="4" class="z-0 g-dsc sep-right text-center">DSC</th>
+                        <th colspan="5" class="z-0 g-dsc sep-right text-center">DSC</th>
                         <th colspan="4" class="z-0 g-segr sep-right text-center">Segreteria (gara)</th>
                         <th colspan="6" class="z-0 g-spese sep-right text-center">Spese (crono)</th>
 
@@ -375,6 +432,7 @@
 
                         <th class="z-0 g-dsc nowrap">Furgone</th>
                         <th class="z-0 g-dsc nowrap">Mancati pasti</th>
+                        <th class="z-0 g-dsc nowrap">Dettaglio pasti</th>
                         <th class="z-0 g-dsc nowrap">Imp. mancati</th>
                         <th class="z-0 g-dsc nowrap sep-right">Apparecchiature</th>
 
@@ -416,6 +474,8 @@
                             $kmAmount = (float) ($sysRace['kmAmount'] ?? 0);
 
                             $rowspan = max(1, $daysCount);
+                            $rowMissedMeals = $countMissedMealsForUser($u->id);
+                            $rowMissedMealsAmount = $amountMissedMealsForUser($u->id);
                         @endphp
 
                         @foreach ($days as $i => $day)
@@ -474,9 +534,11 @@
                                 @if ($i === 0)
                                     <td rowspan="{{ $rowspan }}" class="g-dsc nowrap">
                                         {{ $vanNeeded ? 'Sì' : 'No' }}</td>
-                                    <td rowspan="{{ $rowspan }}" class="g-dsc num">{{ $missedMeals }}</td>
+                                    <td rowspan="{{ $rowspan }}" class="g-dsc num">{{ $rowMissedMeals }}</td>
+                                    <td rowspan="{{ $rowspan }}" class="g-dsc nowrap">
+                                        {{ $formatMissedMealsDetail($u->id) }}</td>
                                     <td rowspan="{{ $rowspan }}" class="g-dsc num">
-                                        {{ number_format($missedMealsAmount, 2) }}</td>
+                                        {{ number_format($rowMissedMealsAmount, 2) }}</td>
                                     <td rowspan="{{ $rowspan }}" class="g-dsc sep-right">
                                         @if (!empty($appsDsc))
                                             {{ implode(', ', $appsDsc) }}
@@ -557,7 +619,7 @@
                         @endforeach
                     @empty
                         <tr>
-                            <td colspan="36" class="text-center text-muted p-4">
+                            <td colspan="37" class="text-center text-muted p-4">
                                 Nessun dato disponibile.
                             </td>
                         </tr>

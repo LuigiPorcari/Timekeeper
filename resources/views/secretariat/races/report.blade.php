@@ -38,6 +38,70 @@
                         ->count();
 
                     $raceClosedBySecretariat = $rowsCollection->count() > 0 && $secretariatOpenEntriesCount === 0;
+
+                    $missedMealsDetailForDisplay = $dscRace->missed_meals_detail ?? [];
+
+                    if (is_string($missedMealsDetailForDisplay)) {
+                        $decodedMealsForDisplay = json_decode($missedMealsDetailForDisplay, true);
+                        $missedMealsDetailForDisplay =
+                            json_last_error() === JSON_ERROR_NONE && is_array($decodedMealsForDisplay)
+                                ? $decodedMealsForDisplay
+                                : [];
+                    }
+
+                    if (!is_array($missedMealsDetailForDisplay)) {
+                        $missedMealsDetailForDisplay = [];
+                    }
+
+                    $getMissedMealsData = function ($userId) use ($missedMealsDetailForDisplay) {
+                        $mealData =
+                            $missedMealsDetailForDisplay[$userId] ??
+                            ($missedMealsDetailForDisplay[(string) $userId] ?? []);
+
+                        if (is_string($mealData)) {
+                            $decodedMealData = json_decode($mealData, true);
+                            $mealData =
+                                json_last_error() === JSON_ERROR_NONE && is_array($decodedMealData)
+                                    ? $decodedMealData
+                                    : [];
+                        }
+
+                        if (!is_array($mealData)) {
+                            $mealData = [];
+                        }
+
+                        $pranzo = !empty($mealData['pranzo']) || !empty($mealData['lunch']);
+                        $cena = !empty($mealData['cena']) || !empty($mealData['dinner']);
+                        $count = ($pranzo ? 1 : 0) + ($cena ? 1 : 0);
+
+                        if ($pranzo && $cena) {
+                            $label = 'Pranzo + Cena';
+                        } elseif ($pranzo) {
+                            $label = 'Pranzo';
+                        } elseif ($cena) {
+                            $label = 'Cena';
+                        } else {
+                            $label = '—';
+                        }
+
+                        return [
+                            'count' => $count,
+                            'amount' => $count * 15,
+                            'label' => $label,
+                        ];
+                    };
+
+                    $formatMissedMealsDetail = function ($userId) use ($getMissedMealsData) {
+                        return $getMissedMealsData($userId)['label'];
+                    };
+
+                    $countMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
+                        return $getMissedMealsData($userId)['count'];
+                    };
+
+                    $amountMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
+                        return $getMissedMealsData($userId)['amount'];
+                    };
                 @endphp
 
                 <div class="card tk-card mb-4">
@@ -91,15 +155,57 @@
                     <div class="card-body">
                         @if ($dscRace)
                             <div class="row g-3">
-                                <div class="col-12 col-md-3">
+                                <div class="col-12 col-md-2">
                                     <div class="fw-bold">Furgone</div>
                                     <div>{{ $dscRace->van_needed ? 'Sì' : 'No' }}</div>
                                 </div>
-                                <div class="col-12 col-md-3">
+                                <div class="col-12 col-md-2">
                                     <div class="fw-bold">Mancati pasti</div>
                                     <div>{{ (int) ($dscRace->missed_meals ?? 0) }}</div>
                                 </div>
-                                <div class="col-12 col-md-6">
+                                <div class="col-12 col-md-4">
+                                    <div class="fw-bold">Dettaglio pasti</div>
+                                    <div class="small">
+                                        @php
+                                            $mealDetailsForCard = $rowsCollection
+                                                ->map(function ($row) use ($formatMissedMealsDetail) {
+                                                    $u = $row['user'] ?? null;
+                                                    if (!$u) {
+                                                        return null;
+                                                    }
+
+                                                    $label = $formatMissedMealsDetail($u->id);
+
+                                                    if ($label === '—') {
+                                                        return null;
+                                                    }
+
+                                                    return [
+                                                        'name' => trim(($u->surname ?? '') . ' ' . ($u->name ?? '')),
+                                                        'label' => $label,
+                                                    ];
+                                                })
+                                                ->filter()
+                                                ->values();
+                                        @endphp
+
+                                        @if ($mealDetailsForCard->isNotEmpty())
+                                            <div class="d-flex flex-column gap-1">
+                                                @foreach ($mealDetailsForCard as $mealDetailForCard)
+                                                    <div>
+                                                        <span
+                                                            class="fw-semibold">{{ $mealDetailForCard['name'] }}</span>
+                                                        <span class="text-muted">—</span>
+                                                        <span>{{ $mealDetailForCard['label'] }}</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="text-muted">—</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
                                     <div class="fw-bold">Apparecchiature</div>
                                     <div>
                                         @php $apps = $dscRace->apparecchiature ?? []; @endphp
@@ -583,8 +689,9 @@
                                         <th>Vitto</th>
                                         <th>Spese varie</th>
                                         <th>Note spese</th>
-                                        <th>Mancati pasti (gara)</th>
-                                        <th>Imp. mancati (sistema)</th>
+                                        <th>Mancati pasti</th>
+                                        <th>Dettaglio pasti</th>
+                                        <th>Imp. mancati</th>
                                         <th>Furgone (sistema)</th>
                                         <th>Totale (sistema)</th>
                                         <th>Note</th>
@@ -614,13 +721,18 @@
                                             <td>{{ number_format((float) ($entry->spese_varie ?? 0), 2) }}</td>
                                             <td>{{ $entry->spese_varie_note ?? '—' }}</td>
 
-                                            <td>{{ (int) ($sys['missedMeals'] ?? 0) }}</td>
-                                            <td>{{ number_format((float) ($sys['missedMealsAmount'] ?? 0), 2) }}</td>
+                                            <td>{{ $countMissedMealsForUser($row['user']->id) }}</td>
+                                            <td>{{ $formatMissedMealsDetail($row['user']->id) }}</td>
+                                            <td>{{ number_format($amountMissedMealsForUser($row['user']->id), 2) }}
+                                            </td>
 
                                             <td>{{ number_format((float) ($sys['vanCostApplied'] ?? 0), 2) }}</td>
 
-                                            <td><strong>{{ number_format((float) ($sys['total'] ?? 0), 2) }}</strong>
-                                            </td>
+                                            @php
+                                                $rowSystemTotal =
+                                                    (float) ($sys['total'] ?? ($sys['totalRacePart'] ?? 0));
+                                            @endphp
+                                            <td><strong>{{ number_format($rowSystemTotal, 2) }}</strong></td>
 
                                             <td>{{ $entry->note ?? '—' }}</td>
 
@@ -843,7 +955,7 @@
                                         @endif
                                     @empty
                                         <tr>
-                                            <td colspan="17" class="text-center text-muted p-4">
+                                            <td colspan="18" class="text-center text-muted p-4">
                                                 Nessun dato disponibile.
                                             </td>
                                         </tr>

@@ -66,6 +66,67 @@
                 '-' .
                 $formatDscTime($dscDay->afternoon_end ?? null);
         };
+
+        $dscRaceForMeals = isset($race) ? \App\Models\ReportRaceDsc::where('race_id', $race->id)->first() : null;
+
+        $missedMealsDetailForDisplay = $dscRaceForMeals->missed_meals_detail ?? [];
+
+        if (is_string($missedMealsDetailForDisplay)) {
+            $decodedMealsForDisplay = json_decode($missedMealsDetailForDisplay, true);
+            $missedMealsDetailForDisplay =
+                json_last_error() === JSON_ERROR_NONE && is_array($decodedMealsForDisplay)
+                    ? $decodedMealsForDisplay
+                    : [];
+        }
+
+        if (!is_array($missedMealsDetailForDisplay)) {
+            $missedMealsDetailForDisplay = [];
+        }
+
+        $getMissedMealsData = function ($userId) use ($missedMealsDetailForDisplay) {
+            $mealData = $missedMealsDetailForDisplay[$userId] ?? ($missedMealsDetailForDisplay[(string) $userId] ?? []);
+
+            if (is_string($mealData)) {
+                $decodedMealData = json_decode($mealData, true);
+                $mealData = json_last_error() === JSON_ERROR_NONE && is_array($decodedMealData) ? $decodedMealData : [];
+            }
+
+            if (!is_array($mealData)) {
+                $mealData = [];
+            }
+
+            $pranzo = !empty($mealData['pranzo']) || !empty($mealData['lunch']);
+            $cena = !empty($mealData['cena']) || !empty($mealData['dinner']);
+            $count = ($pranzo ? 1 : 0) + ($cena ? 1 : 0);
+
+            if ($pranzo && $cena) {
+                $label = 'Pranzo + Cena';
+            } elseif ($pranzo) {
+                $label = 'Pranzo';
+            } elseif ($cena) {
+                $label = 'Cena';
+            } else {
+                $label = '—';
+            }
+
+            return [
+                'count' => $count,
+                'amount' => $count * 15,
+                'label' => $label,
+            ];
+        };
+
+        $formatMissedMealsDetail = function ($userId) use ($getMissedMealsData) {
+            return $getMissedMealsData($userId)['label'];
+        };
+
+        $countMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
+            return $getMissedMealsData($userId)['count'];
+        };
+
+        $amountMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
+            return $getMissedMealsData($userId)['amount'];
+        };
     @endphp
 
     <main class="container-fluid mt-5 pt-5" id="main-content" aria-labelledby="report-title">
@@ -110,6 +171,7 @@
                                             <th rowspan="2">Importo Km</th>
                                             <th colspan="4" class="text-center">Spesa Documentata</th>
                                             <th colspan="3" class="text-center">Spesa NON Documentata</th>
+                                            <th rowspan="2">Pasti mancati</th>
                                             <th rowspan="2">Totale</th>
                                         </tr>
                                         <tr>
@@ -208,12 +270,17 @@
                                                 <td>{{ $record->food_not_documented }}</td>
                                                 <td>{{ $record->daily_allowances_not_documented }}</td>
                                                 <td>{{ $record->special_daily_allowances_not_documented }}</td>
+                                                <td>
+                                                    {{ $countMissedMealsForUser($record->user_id) }}
+                                                    <span
+                                                        class="text-muted">({{ $formatMissedMealsDetail($record->user_id) }})</span>
+                                                </td>
                                                 <td><strong>{{ number_format($rowTotal, 2, ',', '.') }}</strong></td>
                                             </tr>
 
                                             {{-- Riga secondaria: Apparecchiature + Descrizione + Allegati --}}
                                             <tr class="bg-light">
-                                                <td colspan="18">
+                                                <td colspan="19">
                                                     <div class="py-2">
                                                         <div class="mb-1">
                                                             <strong>Orari DSC:</strong>
@@ -262,7 +329,7 @@
 
                                         {{-- Totale complessivo --}}
                                         <tr class="table-secondary fw-bold">
-                                            <td colspan="17" class="text-end">Totale Generale</td>
+                                            <td colspan="18" class="text-end">Totale Generale</td>
                                             <td>{{ number_format($totalSum, 2, ',', '.') }}</td>
                                         </tr>
                                     </tbody>
