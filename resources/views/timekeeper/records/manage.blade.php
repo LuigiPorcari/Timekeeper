@@ -117,6 +117,26 @@
                     $amountMissedMealsForUser = function ($userId) use ($getMissedMealsData) {
                         return $getMissedMealsData($userId)['amount'];
                     };
+
+                    $getEntryAttachments = function ($entry) {
+                        if (!$entry || !($entry->exists ?? false)) {
+                            return collect();
+                        }
+
+                        try {
+                            if (method_exists($entry, 'relationLoaded') && $entry->relationLoaded('attachments')) {
+                                return collect($entry->attachments ?? []);
+                            }
+
+                            if (method_exists($entry, 'attachments')) {
+                                return $entry->attachments()->get();
+                            }
+
+                            return collect($entry->attachments ?? []);
+                        } catch (\Throwable $e) {
+                            return collect();
+                        }
+                    };
                 @endphp
 
                 {{-- ============================================================
@@ -158,7 +178,7 @@
                                     </div>
 
                                     <div class="col-12 col-md-2">
-                                        <label class="form-label">Pedaggi / Trasporto</label>
+                                        <label class="form-label">Pedaggi / Trasporto in €</label>
                                         <input type="number" step="0.01" name="pedaggi"
                                             class="form-control @error('pedaggi') is-invalid @enderror"
                                             value="{{ old('pedaggi', $myEntry->pedaggi ?? null) }}"
@@ -224,7 +244,7 @@
                                     </div>
 
                                     <div class="col-12 col-md-2">
-                                        <label class="form-label">Spese varie</label>
+                                        <label class="form-label">Spese varie in €</label>
                                         <input type="number" step="0.01" name="spese_varie"
                                             class="form-control @error('spese_varie') is-invalid @enderror"
                                             value="{{ old('spese_varie', $myEntry->spese_varie ?? null) }}"
@@ -310,7 +330,7 @@
                                     @foreach ($myEntry->attachments as $a)
                                         <li>
                                             <a href="{{ asset('storage/' . $a->file_path) }}" target="_blank"
-                                                rel="noopener">
+                                                rel="noopener" download="{{ $a->original_name }}">
                                                 {{ $a->original_name }}
                                             </a>
                                         </li>
@@ -1271,12 +1291,19 @@
                                                                 {{ $entry->note ?? '—' }}</td>
 
                                                             <td rowspan="{{ $rowspan }}" class="g-note">
-                                                                @if ($entry->attachments && $entry->attachments->count())
+                                                                @php
+                                                                    $entryAttachments = $getEntryAttachments($entry);
+                                                                @endphp
+
+                                                                @if ($entryAttachments->isNotEmpty())
                                                                     <ul class="list-unstyled mb-0">
-                                                                        @foreach ($entry->attachments as $a)
+                                                                        @foreach ($entryAttachments as $a)
                                                                             <li class="mb-1">
                                                                                 <a href="{{ asset('storage/' . $a->file_path) }}"
-                                                                                    target="_blank" rel="noopener">
+                                                                                    target="_blank" rel="noopener"
+                                                                                    download="{{ $a->original_name }}">
+                                                                                    <i
+                                                                                        class="fas fa-paperclip me-1"></i>
                                                                                     {{ $a->original_name }}
                                                                                 </a>
                                                                             </li>

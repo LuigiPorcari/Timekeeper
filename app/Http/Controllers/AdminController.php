@@ -317,41 +317,73 @@ class AdminController extends Controller
         // Mappa per-day: color[YYYY-MM-DD] = 'verde'|'arancione'|'rosso'
         $validated = $request->validate([
             'color' => ['nullable', 'array'],
-            'color.*' => [Rule::in(['verde', 'arancione', 'rosso'])],
+            'color.*' => [\Illuminate\Validation\Rule::in(['verde', 'arancione', 'rosso'])],
         ]);
 
-        $colorMap = $validated['color'] ?? [];                // es: ['2025-02-03' => 'verde', ...]
-        $datesSelected = array_keys($colorMap);               // giorni con un colore scelto
+        $year = now()->year;
 
-        $existing = Availability::pluck('date_of_availability', 'id')->toArray(); // [id => date]
-        $existingDates = array_values($existing);             // ['2025-02-03', ...]
+        $colorMap = $validated['color'] ?? [];
 
-        $datesToAdd = array_diff($datesSelected, $existingDates);
-        $datesToUpdate = array_intersect($datesSelected, $existingDates);
-        $datesToRemove = array_diff($existingDates, $datesSelected); // giorni non più colorati -> rimuovi
+        // Tengo solo le date dell'anno corrente, così non rischio di cancellare disponibilità di altri anni.
+        $colorMap = collect($colorMap)
+            ->filter(function ($color, $date) use ($year) {
+                try {
+                    return \Illuminate\Support\Carbon::parse($date)->year === $year;
+                } catch (\Throwable $e) {
+                    return false;
+                }
+            })
+            ->toArray();
 
-        // Aggiungi nuovi
-        foreach ($datesToAdd as $date) {
-            Availability::create([
-                'date_of_availability' => $date,
-                'color' => $colorMap[$date],
-            ]);
-        }
+        $datesSelected = array_keys($colorMap);
 
-        // Aggiorna colore ai già esistenti
-        if (!empty($datesToUpdate)) {
-            Availability::whereIn('date_of_availability', $datesToUpdate)
-                ->get()
-                ->each(function ($row) use ($colorMap) {
-                    $row->color = $colorMap[$row->date_of_availability];
-                    $row->save();
-                });
-        }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($colorMap, $datesSelected, $year) {
+            // Considero solo le disponibilità dell'anno corrente.
+            $existing = Availability::whereYear('date_of_availability', $year)
+                ->pluck('date_of_availability', 'id')
+                ->toArray();
 
-        // Rimuovi deselezionati (nessun colore scelto)
-        if (!empty($datesToRemove)) {
-            Availability::whereIn('date_of_availability', $datesToRemove)->delete();
-        }
+            $existingDates = array_values($existing);
+
+            $datesToAdd = array_diff($datesSelected, $existingDates);
+            $datesToUpdate = array_intersect($datesSelected, $existingDates);
+            $datesToRemove = array_diff($existingDates, $datesSelected);
+
+            // Aggiungi nuovi giorni
+            foreach ($datesToAdd as $date) {
+                Availability::create([
+                    'date_of_availability' => $date,
+                    'color' => $colorMap[$date],
+                ]);
+            }
+
+            // Aggiorna colore ai giorni già esistenti
+            if (!empty($datesToUpdate)) {
+                Availability::whereIn('date_of_availability', $datesToUpdate)
+                    ->get()
+                    ->each(function ($row) use ($colorMap) {
+                        $row->color = $colorMap[$row->date_of_availability];
+                        $row->save();
+                    });
+            }
+
+            // Rimuovi i giorni deselezionati.
+            // Prima elimino i collegamenti con i cronometristi, poi elimino la disponibilità.
+            if (!empty($datesToRemove)) {
+                $availabilityIdsToRemove = Availability::whereYear('date_of_availability', $year)
+                    ->whereIn('date_of_availability', $datesToRemove)
+                    ->pluck('id')
+                    ->all();
+
+                if (!empty($availabilityIdsToRemove)) {
+                    \Illuminate\Support\Facades\DB::table('availability_user')
+                        ->whereIn('availability_id', $availabilityIdsToRemove)
+                        ->delete();
+
+                    Availability::whereIn('id', $availabilityIdsToRemove)->delete();
+                }
+            }
+        });
 
         return back()->with('success', 'Disponibilità aggiornata con successo!');
     }

@@ -110,7 +110,7 @@
         <div class="header-info">
             <strong>FEDERAZIONE ITALIANA CRONOMETRISTI</strong><br>
             ASSOCIAZIONE CRONOMETRISTI SPORTIVI TORINO<br>
-            Email: {{ $contactEmail ?? '[inserire email]' }} | Telefono: {{ $contactPhone ?? '[inserire numero]' }}
+            Email: crono.torino@ficr.it | Telefono: {{ $contactPhone ?? '[inserire numero]' }}
         </div>
 
         <h1>Convocazione Cronometristi – Servizio Gara</h1>
@@ -139,22 +139,12 @@
             presso <strong>{{ $racePlace ?? '[luogo]' }}</strong>.
         </p>
 
-        <h2>Dettagli organizzativi</h2>
-        <ul>
-            <li><strong>Ritrovo:</strong> {{ $meetInfo ?? '[ora e luogo di convocazione]' }}</li>
-            <li><strong>Inizio gara:</strong> {{ $raceStartTime ?? '[ora]' }}</li>
-            <li><strong>Responsabile di servizio:</strong> {{ $serviceManager ?? '[nome e cognome]' }}</li>
-        </ul>
+        <h2>Comunicazioni</h2>
 
         <p>
-            Si raccomanda la massima puntualità e l’utilizzo dell’abbigliamento federale.
-            Si prega di confermare la propria disponibilità entro il
-            <strong>{{ $deadlineConfirm ?? '[termine]' }}</strong>
-            @if (!empty($replyEmail))
-                scrivendo a <a href="mailto:{{ $replyEmail }}">{{ $replyEmail }}</a>.
-            @else
-                rispondendo alla presente email.
-            @endif
+            Per eventuali comunicazioni relative alla convocazione, si prega di rispondere alla presente email
+            oppure contattare la segreteria all’indirizzo
+            <a href="mailto:crono.torino@ficr.it">crono.torino@ficr.it</a>.
         </p>
 
         <p>Grazie per la collaborazione e la consueta disponibilità.</p>

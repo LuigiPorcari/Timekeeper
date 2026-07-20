@@ -742,8 +742,10 @@
                                                         @foreach ($entry->attachments as $a)
                                                             <li>
                                                                 <a href="{{ asset('storage/' . $a->file_path) }}"
-                                                                    target="_blank">
-                                                                    {{ $a->original_name }}
+                                                                    target="_blank" rel="noopener"
+                                                                    download="{{ $a->original_name ?: basename($a->file_path) }}">
+                                                                    <i class="fas fa-paperclip me-1"></i>
+                                                                    {{ $a->original_name ?: basename($a->file_path) }}
                                                                 </a>
                                                             </li>
                                                         @endforeach
@@ -802,157 +804,6 @@
                                             </td>
                                         </tr>
 
-                                        @if ($entry->exists ?? false)
-                                            <div class="modal fade" id="editReportEntryModal_{{ $entry->id }}"
-                                                tabindex="-1" aria-hidden="true"
-                                                aria-labelledby="editReportEntryModal_{{ $entry->id }}Label">
-                                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 id="editReportEntryModal_{{ $entry->id }}Label"
-                                                                class="modal-title">
-                                                                Modifica report — {{ $row['user']->surname }}
-                                                                {{ $row['user']->name }}
-                                                            </h5>
-                                                            <button type="button" class="btn-close"
-                                                                data-bs-dismiss="modal" aria-label="Chiudi"></button>
-                                                        </div>
-
-                                                        <form method="POST"
-                                                            action="{{ route('secretariat.records.update', $entry) }}">
-                                                            @csrf
-                                                            @method('PUT')
-                                                            <input type="hidden" name="day"
-                                                                value="{{ $selectedDay }}">
-
-                                                            <div class="modal-body">
-                                                                @if ($entry->secretariat_confirmed)
-                                                                    <div class="alert alert-success mb-0">
-                                                                        Report già confermato dalla segreteria: non è
-                                                                        più modificabile.
-                                                                    </div>
-                                                                @else
-                                                                    <div class="row g-3">
-                                                                        <div class="col-12 col-md-4">
-                                                                            <label class="form-label">Km</label>
-                                                                            <input type="number" step="0.01"
-                                                                                min="0" name="km"
-                                                                                class="form-control"
-                                                                                value="{{ $entry->km }}">
-                                                                        </div>
-
-                                                                        <div class="col-12 col-md-4">
-                                                                            <label class="form-label">Pedaggi /
-                                                                                Trasporto</label>
-                                                                            <input type="number" step="0.01"
-                                                                                min="0" name="pedaggi"
-                                                                                class="form-control"
-                                                                                value="{{ $entry->pedaggi }}">
-                                                                        </div>
-
-                                                                        @php
-                                                                            $vittoTipoModal = old('vitto_tipo');
-
-                                                                            if ($vittoTipoModal === null) {
-                                                                                if ($entry->vitto === null) {
-                                                                                    $vittoTipoModal = '';
-                                                                                } elseif (
-                                                                                    (float) $entry->vitto === 15.0
-                                                                                ) {
-                                                                                    $vittoTipoModal = 'forfettario';
-                                                                                } elseif (
-                                                                                    (float) $entry->vitto === 0.0
-                                                                                ) {
-                                                                                    $vittoTipoModal = 'offerto';
-                                                                                } else {
-                                                                                    $vittoTipoModal = 'documentato';
-                                                                                }
-                                                                            }
-
-                                                                            $vittoDocumentatoModal = old(
-                                                                                'vitto_documentato',
-                                                                            );
-
-                                                                            if (
-                                                                                $vittoDocumentatoModal === null &&
-                                                                                $vittoTipoModal === 'documentato'
-                                                                            ) {
-                                                                                $vittoDocumentatoModal = $entry->vitto;
-                                                                            }
-                                                                        @endphp
-
-                                                                        <div class="col-12 col-md-4">
-                                                                            <label class="form-label">Vitto</label>
-                                                                            <select name="vitto_tipo"
-                                                                                class="form-select js-vitto-tipo">
-                                                                                <option value="">-- Seleziona --
-                                                                                </option>
-                                                                                <option value="forfettario"
-                                                                                    {{ $vittoTipoModal === 'forfettario' ? 'selected' : '' }}>
-                                                                                    Forfettario - 15€
-                                                                                </option>
-                                                                                <option value="offerto"
-                                                                                    {{ $vittoTipoModal === 'offerto' ? 'selected' : '' }}>
-                                                                                    Offerto - 0€
-                                                                                </option>
-                                                                                <option value="documentato"
-                                                                                    {{ $vittoTipoModal === 'documentato' ? 'selected' : '' }}>
-                                                                                    Documentato
-                                                                                </option>
-                                                                            </select>
-                                                                        </div>
-
-                                                                        <div class="col-12 col-md-4 js-vitto-documentato-wrap"
-                                                                            style="display:none;">
-                                                                            <label class="form-label">Importo vitto
-                                                                                documentato</label>
-                                                                            <input type="number" step="0.01"
-                                                                                min="0"
-                                                                                name="vitto_documentato"
-                                                                                class="form-control js-vitto-documentato"
-                                                                                value="{{ $vittoDocumentatoModal }}">
-                                                                        </div>
-
-                                                                        <div class="col-12 col-md-4">
-                                                                            <label class="form-label">Spese
-                                                                                varie</label>
-                                                                            <input type="number" step="0.01"
-                                                                                min="0" name="spese_varie"
-                                                                                class="form-control"
-                                                                                value="{{ $entry->spese_varie }}">
-                                                                        </div>
-
-                                                                        <div class="col-12 col-md-8">
-                                                                            <label class="form-label">Note spese
-                                                                                varie</label>
-                                                                            <input type="text"
-                                                                                name="spese_varie_note"
-                                                                                class="form-control"
-                                                                                value="{{ $entry->spese_varie_note }}"
-                                                                                placeholder="Es. parcheggio, taxi, materiale...">
-                                                                        </div>
-
-                                                                        <div class="col-12">
-                                                                            <label class="form-label">Note</label>
-                                                                            <textarea name="note" class="form-control" rows="3">{{ $entry->note }}</textarea>
-                                                                        </div>
-                                                                    </div>
-                                                                @endif
-                                                            </div>
-
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary"
-                                                                    data-bs-dismiss="modal">Annulla</button>
-                                                                <button type="submit" class="btn btn-primary"
-                                                                    {{ $entry->secretariat_confirmed ? 'disabled' : '' }}>
-                                                                    Salva modifiche
-                                                                </button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        @endif
                                     @empty
                                         <tr>
                                             <td colspan="18" class="text-center text-muted p-4">
@@ -966,6 +817,154 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- MODALI MODIFICA REPORT
+                    Tenute fuori dalla tabella per evitare HTML non valido dentro <tbody>
+                    e sfarfallii/aperture instabili di Bootstrap.
+                --}}
+                @foreach ($rows as $modalRow)
+                    @php
+                        $row = $modalRow;
+                        $entry = $row['entry'];
+                    @endphp
+
+                    @if ($entry->exists ?? false)
+                        <div class="modal fade" id="editReportEntryModal_{{ $entry->id }}" tabindex="-1"
+                            aria-hidden="true" aria-labelledby="editReportEntryModal_{{ $entry->id }}Label">
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 id="editReportEntryModal_{{ $entry->id }}Label" class="modal-title">
+                                            Modifica report — {{ $row['user']->surname }}
+                                            {{ $row['user']->name }}
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Chiudi"></button>
+                                    </div>
+
+                                    <form method="POST" action="{{ route('secretariat.records.update', $entry) }}">
+                                        @csrf
+                                        @method('PUT')
+                                        <input type="hidden" name="day" value="{{ $selectedDay }}">
+
+                                        <div class="modal-body">
+                                            @if ($entry->secretariat_confirmed)
+                                                <div class="alert alert-success mb-0">
+                                                    Report già confermato dalla segreteria: non è
+                                                    più modificabile.
+                                                </div>
+                                            @else
+                                                <div class="row g-3">
+                                                    <div class="col-12 col-md-4">
+                                                        <label class="form-label">Km</label>
+                                                        <input type="number" step="0.01" min="0"
+                                                            name="km" class="form-control"
+                                                            value="{{ $entry->km }}">
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4">
+                                                        <label class="form-label">Pedaggi /
+                                                            Trasporto</label>
+                                                        <input type="number" step="0.01" min="0"
+                                                            name="pedaggi" class="form-control"
+                                                            value="{{ $entry->pedaggi }}">
+                                                    </div>
+
+                                                    @php
+                                                        $vittoTipoModal = old('vitto_tipo');
+
+                                                        if ($vittoTipoModal === null) {
+                                                            if ($entry->vitto === null) {
+                                                                $vittoTipoModal = '';
+                                                            } elseif ((float) $entry->vitto === 15.0) {
+                                                                $vittoTipoModal = 'forfettario';
+                                                            } elseif ((float) $entry->vitto === 0.0) {
+                                                                $vittoTipoModal = 'offerto';
+                                                            } else {
+                                                                $vittoTipoModal = 'documentato';
+                                                            }
+                                                        }
+
+                                                        $vittoDocumentatoModal = old('vitto_documentato');
+
+                                                        if (
+                                                            $vittoDocumentatoModal === null &&
+                                                            $vittoTipoModal === 'documentato'
+                                                        ) {
+                                                            $vittoDocumentatoModal = $entry->vitto;
+                                                        }
+                                                    @endphp
+
+                                                    <div class="col-12 col-md-4">
+                                                        <label class="form-label">Vitto</label>
+                                                        <select name="vitto_tipo" class="form-select js-vitto-tipo">
+                                                            <option value="">-- Seleziona --
+                                                            </option>
+                                                            <option value="forfettario"
+                                                                {{ $vittoTipoModal === 'forfettario' ? 'selected' : '' }}>
+                                                                Forfettario - 15€
+                                                            </option>
+                                                            <option value="offerto"
+                                                                {{ $vittoTipoModal === 'offerto' ? 'selected' : '' }}>
+                                                                Offerto - 0€
+                                                            </option>
+                                                            <option value="documentato"
+                                                                {{ $vittoTipoModal === 'documentato' ? 'selected' : '' }}>
+                                                                Documentato
+                                                            </option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4 js-vitto-documentato-wrap"
+                                                        style="display:none;">
+                                                        <label class="form-label">Importo vitto
+                                                            documentato</label>
+                                                        <input type="number" step="0.01" min="0"
+                                                            name="vitto_documentato"
+                                                            class="form-control js-vitto-documentato"
+                                                            value="{{ $vittoDocumentatoModal }}">
+                                                    </div>
+
+                                                    <div class="col-12 col-md-4">
+                                                        <label class="form-label">Spese
+                                                            varie</label>
+                                                        <input type="number" step="0.01" min="0"
+                                                            name="spese_varie" class="form-control"
+                                                            value="{{ $entry->spese_varie }}">
+                                                    </div>
+
+                                                    <div class="col-12 col-md-8">
+                                                        <label class="form-label">Note spese
+                                                            varie</label>
+                                                        <input type="text" name="spese_varie_note"
+                                                            class="form-control"
+                                                            value="{{ $entry->spese_varie_note }}"
+                                                            placeholder="Es. parcheggio, taxi, materiale...">
+                                                    </div>
+
+                                                    <div class="col-12">
+                                                        <label class="form-label">Note</label>
+                                                        <textarea name="note" class="form-control" rows="3">{{ $entry->note }}</textarea>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-bs-dismiss="modal">Annulla</button>
+                                            <button type="submit" class="btn btn-primary"
+                                                {{ $entry->secretariat_confirmed ? 'disabled' : '' }}>
+                                                Salva modifiche
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                @endforeach
+
 
                 <a href="{{ route('secretariat.races.reportFull', $race) }}" class="btn btn-outline-primary">
                     <i class="fas fa-file-alt me-1"></i> Apri Report Completo
